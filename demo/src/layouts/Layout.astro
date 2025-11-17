@@ -1,0 +1,66 @@
+---
+interface Props {
+  title: string;
+  showHeader?: boolean;
+  headerTitle?: string;
+  backLink?: string;
+}
+
+const { title, showHeader = true, headerTitle = '', backLink } = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content="彩票投注系統" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <div class="min-h-screen flex flex-col">
+      {showHeader && (
+        <header class="sticky top-0 z-50 bg-gradient-primary text-white shadow-lg safe-top">
+          <div class="flex items-center justify-between px-4 py-4">
+            {backLink ? (
+              <a href={backLink} class="p-2 -ml-2 active:opacity-70 transition-opacity">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </a>
+            ) : (
+              <div class="w-10"></div>
+            )}
+
+            <h1 class="text-xl font-bold">{headerTitle || title}</h1>
+
+            <a href="/" class="p-2 -mr-2 active:opacity-70 transition-opacity">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            </a>
+          </div>
+        </header>
+      )}
+
+      <main class="flex-1 pb-safe">
+        <slot />
+      </main>
+    </div>
+
+    <script>
+      import Alpine from 'alpinejs';
+      window.Alpine = Alpine;
+      Alpine.start();
+    </script>
+
+    <style is:global>
+      @import "../styles/global.css";
+    </style>
+  </body>
+</html>

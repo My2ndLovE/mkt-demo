@@ -1,0 +1,19 @@
+---
+interface Props {
+  title: string;
+  icon: string;
+  href: string;
+  gradient?: string;
+}
+
+const { title, icon, href, gradient = 'from-orange-400 to-orange-500' } = Astro.props;
+---
+
+<a
+  href={href}
+  class="card card-hover bg-gradient-to-br {gradient} text-white flex flex-col items-center justify-center gap-4 aspect-square animate-scale-in"
+  style="animation-delay: 0.1s"
+>
+  <div class="text-5xl" set:html={icon} />
+  <span class="text-lg font-bold">{title}</span>
+</a>

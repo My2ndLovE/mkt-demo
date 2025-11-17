@@ -1,0 +1,83 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { mockPendingBets } from '../data/mockBets.js';
+---
+
+<Layout title="取消" headerTitle="取消" backLink="/">
+  <div class="bg-gray-50 min-h-screen">
+    <!-- Filter Section -->
+    <div class="bg-gradient-primary p-4 pb-6">
+      <div class="card animate-scale-in">
+        <h3 class="font-bold text-gray-700 mb-4">篩選條件</h3>
+
+        <div class="space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm text-gray-600 mb-1 block">從:</label>
+              <input type="text" value="16#11" class="input text-center" readonly />
+            </div>
+            <div>
+              <label class="text-sm text-gray-600 mb-1 block">到:</label>
+              <input type="text" class="input text-center" placeholder="選擇日期" />
+            </div>
+          </div>
+
+          <button class="btn btn-accent w-full">搜尋</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending Bets List -->
+    <div class="p-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-gray-700">待開獎投注</h3>
+        <span class="text-sm text-gray-500">{mockPendingBets.length} 筆</span>
+      </div>
+
+      {mockPendingBets.length === 0 ? (
+        <div class="card text-center py-12">
+          <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+          </svg>
+          <p class="text-gray-500">沒有待取消的投注</p>
+        </div>
+      ) : (
+        <div class="space-y-3"
+             x-data="{ selectedBets: [] }">
+          {mockPendingBets.map((bet) => (
+            <div class="card animate-scale-in">
+              <div class="flex justify-between items-start mb-3">
+                <div>
+                  <p class="font-bold text-lg">{bet.receipt}</p>
+                  <p class="text-sm text-gray-500">{bet.fullDate}</p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-700">
+                  待開獎
+                </span>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3 text-sm mb-4">
+                <div>
+                  <span class="text-gray-500">號碼:</span>
+                  <span class="font-mono font-semibold ml-2">{bet.numbers.join(', ')}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">類型:</span>
+                  <span class="font-semibold ml-2">{bet.gameType} • {bet.betType}</span>
+                </div>
+                <div class="col-span-2">
+                  <span class="text-gray-500">投注額:</span>
+                  <span class="font-semibold ml-2">MYR {bet.amount}</span>
+                </div>
+              </div>
+
+              <button class="btn btn-secondary w-full text-red-600 border-red-200 active:bg-red-50">
+                取消此投注
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>

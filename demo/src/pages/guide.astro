@@ -1,0 +1,222 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="指南" headerTitle="指南" backLink="/">
+  <div class="bg-gradient-primary min-h-screen">
+    <!-- Tab Navigation -->
+    <div class="sticky top-16 bg-gradient-primary z-40 px-4 pt-4"
+         x-data="{ activeTab: 'betting' }">
+      <div class="flex gap-2 overflow-x-auto scrollbar-hide pb-2">
+        <button @click="activeTab = 'betting'"
+                :class="activeTab === 'betting' ? 'bg-white text-primary-700' : 'bg-white/20 text-white'"
+                class="px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all">
+          幸運
+        </button>
+        <button @click="activeTab = 'query'"
+                :class="activeTab === 'query' ? 'bg-white text-primary-700' : 'bg-white/20 text-white'"
+                class="px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all">
+          查詢
+        </button>
+        <button @click="activeTab = 'winning'"
+                :class="activeTab === 'winning' ? 'bg-white text-primary-700' : 'bg-white/20 text-white'"
+                class="px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all">
+          中獎
+        </button>
+        <button @click="activeTab = 'results'"
+                :class="activeTab === 'results' ? 'bg-white text-primary-700' : 'bg-white/20 text-white'"
+                class="px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all">
+          成績
+        </button>
+        <button @click="activeTab = 'accounts'"
+                :class="activeTab === 'accounts' ? 'bg-white text-primary-700' : 'bg-white/20 text-white'"
+                class="px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all">
+          總額
+        </button>
+      </div>
+
+      <!-- Instructions Content -->
+      <div class="mt-4 p-6 bg-white rounded-t-3xl min-h-screen">
+        <!-- Betting Tab -->
+        <div x-show="activeTab === 'betting'" x-transition>
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">買法</h2>
+
+          <div class="space-y-6">
+            <!-- L1 Section -->
+            <section>
+              <h3 class="font-bold text-lg text-primary-700 mb-3">L1:</h3>
+              <div class="space-y-2 text-gray-700 leading-relaxed">
+                <p class="font-mono bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                  D=今期
+                </p>
+                <p class="font-mono bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                  D7=買七期
+                </p>
+                <p class="font-mono bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                  我23=直接買23號的期
+                </p>
+                <p class="font-mono bg-blue-50 p-3 rounded-lg border-l-4 border-blue-500">
+                  23#26=直接買23號和26號的期
+                </p>
+              </div>
+            </section>
+
+            <!-- L2 Section -->
+            <section>
+              <h3 class="font-bold text-lg text-primary-700 mb-3">L2</h3>
+              <div class="space-y-2 text-gray-700 leading-relaxed">
+                <p class="font-mono bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+                  #1234567=1萬能，2馬會，3多多，4新加坡，5沙巴，6三打根，7沙撈越（馬币）
+                </p>
+                <p class="font-mono bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+                  #3-多多,多多5D,多多6D
+                </p>
+                <p class="font-mono bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+                  ##1234567=買新币
+                </p>
+                <p class="font-mono bg-green-50 p-3 rounded-lg border-l-4 border-green-500">
+                  #0 或者 #8=豪龍
+                </p>
+              </div>
+            </section>
+
+            <!-- L3 Section -->
+            <section>
+              <h3 class="font-bold text-lg text-primary-700 mb-3">L3</h3>
+              <div class="space-y-2 text-gray-700 leading-relaxed">
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  4個號碼#大#小|#A1#C#A
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  1234#1#1=123#1大#1小
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  *0001=0001, 0010, 0100, 1000調換字
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  **0001=IBOX調換字
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  1234*=1234,4321來回兩個字
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  1*003=1003, 1030, 1300調換後面三個號碼
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  100*4=1004, 0104, 0014調換前面三個號碼
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  1234**=#A1#A2#A3#A4#A5
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  *1234*=Ibox A1-A5
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  1*=自動選4個號碼
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  9*=自動選4個號碼
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  (3個号碼)#C#A#A2#A3#A4#A5
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  123#1#1-123-1C-1A
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  123**#1#1#1#1#1-123-1A1-1A2-1A3-1A4-1A5
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  (2個号碼)#A1#A2#A3#A4#A5
+                </p>
+                <p class="font-mono bg-purple-50 p-3 rounded-lg border-l-4 border-purple-500">
+                  12##1#1#1#1#1-12-1A1-1A2-1A3-1A4-1A5
+                </p>
+              </div>
+            </section>
+
+            <!-- Odds Section -->
+            <section>
+              <h3 class="font-bold text-lg text-primary-700 mb-3">賠率 (4D)</h3>
+              <div class="space-y-2 text-gray-700">
+                <p class="font-mono bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                  A1=【头奖率子-6000】
+                </p>
+                <p class="font-mono bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                  A2=【二奖率子-6000】
+                </p>
+                <p class="font-mono bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                  A3=【三奖率子-6000】
+                </p>
+                <p class="font-mono bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                  A4=【入圍奖-600】
+                </p>
+                <p class="font-mono bg-yellow-50 p-3 rounded-lg border-l-4 border-yellow-500">
+                  A5=【安慰奖-600】
+                </p>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <!-- Query Tab -->
+        <div x-show="activeTab === 'query'" x-transition>
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">查詢說明</h2>
+          <div class="space-y-4 text-gray-700 leading-relaxed">
+            <p>使用查詢功能可以快速找到您的投注記錄：</p>
+            <ul class="list-disc list-inside space-y-2 ml-4">
+              <li>按日期範圍搜尋</li>
+              <li>按號碼搜尋</li>
+              <li>按單號搜尋</li>
+              <li>篩選中獎/未中獎記錄</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Winning Tab -->
+        <div x-show="activeTab === 'winning'" x-transition>
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">中獎說明</h2>
+          <div class="space-y-4 text-gray-700 leading-relaxed">
+            <p>中獎記錄會自動顯示：</p>
+            <ul class="list-disc list-inside space-y-2 ml-4">
+              <li>最新開獎結果</li>
+              <li>您的中獎投注</li>
+              <li>中獎金額計算</li>
+              <li>獎項類別 (A1-A5)</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Results Tab -->
+        <div x-show="activeTab === 'results'" x-transition>
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">成績說明</h2>
+          <div class="space-y-4 text-gray-700 leading-relaxed">
+            <p>查看歷史開獎記錄：</p>
+            <ul class="list-disc list-inside space-y-2 ml-4">
+              <li>日曆顯示每日開獎號碼</li>
+              <li>按月份瀏覽</li>
+              <li>點擊日期查看詳細結果</li>
+              <li>統計本月表現</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Accounts Tab -->
+        <div x-show="activeTab === 'accounts'" x-transition>
+          <h2 class="text-2xl font-bold text-gray-900 mb-6">總額說明</h2>
+          <div class="space-y-4 text-gray-700 leading-relaxed">
+            <p>查看投注統計資料：</p>
+            <ul class="list-disc list-inside space-y-2 ml-4">
+              <li>總投注筆數</li>
+              <li>總投注金額</li>
+              <li>總中獎金額</li>
+              <li>淨盈虧計算</li>
+              <li>按遊戲類型分類</li>
+              <li>按公司分類統計</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

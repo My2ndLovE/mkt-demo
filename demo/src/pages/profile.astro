@@ -1,0 +1,189 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { mockUserProfile } from '../data/mockBets.js';
+---
+
+<Layout title="用戶" headerTitle="用戶" backLink="/">
+  <div class="bg-gradient-primary min-h-screen p-4">
+    <div class="max-w-2xl mx-auto space-y-4">
+      <!-- User Profile Form -->
+      <div class="card animate-scale-in">
+        <div class="space-y-4">
+          <!-- Username -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">用戶名</label>
+            <input
+              type="text"
+              value="KGOR"
+              class="input"
+              readonly
+            />
+          </div>
+
+          <!-- Password -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">密碼</label>
+            <input
+              type="password"
+              value="********"
+              class="input"
+              placeholder="輸入新密碼"
+            />
+          </div>
+
+          <!-- Name -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">名字</label>
+            <input
+              type="text"
+              value=""
+              class="input"
+              placeholder="輸入姓名"
+            />
+          </div>
+
+          <!-- Phone -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">電話</label>
+            <input
+              type="tel"
+              value=""
+              class="input"
+              placeholder="輸入電話號碼"
+            />
+          </div>
+
+          <!-- Game Method -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">賠法</label>
+            <input
+              type="text"
+              value="BSA1CA,SBA1AC,BSA1AC,BSC4"
+              class="input"
+              readonly
+            />
+          </div>
+
+          <!-- Language -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">語言</label>
+            <select class="input">
+              <option selected>中文</option>
+              <option>English</option>
+              <option>Bahasa Melayu</option>
+            </select>
+          </div>
+
+          <!-- Print Size -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">列印大小</label>
+            <select class="input">
+              <option>1</option>
+              <option selected>2</option>
+              <option>3</option>
+              <option>4</option>
+            </select>
+          </div>
+
+          <!-- Font Size -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">字體大小</label>
+            <div class="flex items-center gap-3">
+              <button class="btn btn-secondary px-4 py-2">-</button>
+              <div class="flex-1 text-center">
+                <span class="text-2xl font-bold text-gray-900">100%</span>
+              </div>
+              <button class="btn btn-secondary px-4 py-2">+</button>
+            </div>
+          </div>
+
+          <!-- Color Scheme -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">配棗</label>
+            <input
+              type="text"
+              value="8QIQI8 2730 JB"
+              class="input"
+              readonly
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Odds Table -->
+      <div class="card animate-scale-in" style="animation-delay: 0.1s">
+        <h3 class="font-bold text-lg text-gray-900 mb-4">賠率表</h3>
+
+        <!-- Table Header -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="bg-primary-600 text-white">
+                <th class="px-3 py-2 text-left font-bold">大小万</th>
+                <th class="px-3 py-2 text-center font-bold">首奖</th>
+                <th class="px-3 py-2 text-center font-bold">二奖</th>
+                <th class="px-3 py-2 text-center font-bold">三奖</th>
+                <th class="px-3 py-2 text-center font-bold">特别</th>
+                <th class="px-3 py-2 text-center font-bold">安慰</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+              <!-- B Row -->
+              <tr class="bg-blue-50">
+                <td class="px-3 py-2 font-bold text-gray-900">B</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">2730</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">1050</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">525</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">210</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">63</td>
+              </tr>
+              <!-- S Row -->
+              <tr class="bg-white">
+                <td class="px-3 py-2 font-bold text-gray-900">S</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">3780</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">2100</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">1050</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">0</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">0</td>
+              </tr>
+              <!-- A1-A5 Row -->
+              <tr class="bg-blue-50">
+                <td class="px-3 py-2 font-bold text-gray-900">A1-A5</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">6615</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">6615</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">6615</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">661</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">661</td>
+              </tr>
+              <!-- 5D Row -->
+              <tr class="bg-white">
+                <td class="px-3 py-2 font-bold text-gray-900">5D</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">16500</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">5500</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">3300</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">550</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">22</td>
+              </tr>
+              <!-- 6D Row -->
+              <tr class="bg-blue-50">
+                <td class="px-3 py-2 font-bold text-gray-900">6D</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">110000</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">3300</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">330</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">33</td>
+                <td class="px-3 py-2 text-center font-mono font-semibold">11</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Save Button -->
+      <div class="pb-6">
+        <button class="btn btn-primary w-full text-lg">
+          儲存設定
+        </button>
+      </div>
+    </div>
+  </div>
+</Layout>

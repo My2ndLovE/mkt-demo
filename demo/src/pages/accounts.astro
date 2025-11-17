@@ -1,0 +1,163 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { mockUserProfile } from '../data/mockBets.js';
+---
+
+<Layout title="帳目" headerTitle="帳目" backLink="/">
+  <div class="bg-gray-50 min-h-screen">
+    <!-- Filter Section -->
+    <div class="bg-gradient-primary p-4 pb-6">
+      <div class="card animate-scale-in">
+        <h3 class="font-bold text-gray-700 mb-4">彩彩</h3>
+
+        <div class="space-y-4">
+          <!-- Date Range -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm text-gray-600 mb-1 block">從:</label>
+              <input type="text" value="16#11" class="input text-center" readonly />
+            </div>
+            <div>
+              <label class="text-sm text-gray-600 mb-1 block">到:</label>
+              <input type="text" class="input text-center" placeholder="選擇日期" />
+            </div>
+          </div>
+
+          <!-- Dropdown Filters -->
+          <div>
+            <label class="text-sm text-gray-600 mb-1 block">觀點</label>
+            <select class="input">
+              <option>Parent</option>
+              <option>Child</option>
+              <option>All</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-sm text-gray-600 mb-1 block">中獎單</label>
+            <select class="input">
+              <option>No</option>
+              <option>Yes</option>
+              <option>All</option>
+            </select>
+          </div>
+
+          <!-- Search Button -->
+          <button class="btn btn-accent w-full">查詢</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Account Summary -->
+    <div class="p-4">
+      <h3 class="font-bold text-gray-700 mb-4 text-lg">賬目摘要</h3>
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="card bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200">
+          <p class="text-sm text-blue-600 mb-1">總投注額</p>
+          <p class="text-3xl font-bold text-blue-900">450</p>
+          <p class="text-xs text-blue-500 mt-1">MYR</p>
+        </div>
+
+        <div class="card bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200">
+          <p class="text-sm text-green-600 mb-1">總中獎額</p>
+          <p class="text-3xl font-bold text-green-900">720</p>
+          <p class="text-xs text-green-500 mt-1">MYR</p>
+        </div>
+
+        <div class="card bg-gradient-to-br from-purple-50 to-purple-100 border-2 border-purple-200">
+          <p class="text-sm text-purple-600 mb-1">淨盈虧</p>
+          <p class="text-3xl font-bold text-purple-900">+270</p>
+          <p class="text-xs text-purple-500 mt-1">MYR</p>
+        </div>
+
+        <div class="card bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200">
+          <p class="text-sm text-orange-600 mb-1">佣金收入</p>
+          <p class="text-3xl font-bold text-orange-900">135</p>
+          <p class="text-xs text-orange-500 mt-1">MYR</p>
+        </div>
+      </div>
+
+      <!-- Detailed Account List -->
+      <div class="card">
+        <h4 class="font-bold text-lg mb-4">交易明細</h4>
+
+        <div class="space-y-3">
+          <!-- Transaction Item -->
+          <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <p class="font-semibold text-gray-900">16#11 - 投注</p>
+                <p class="text-sm text-gray-500">2025年11月16日</p>
+              </div>
+              <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-bold">
+                -MYR 100
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-sm mt-3">
+              <div>
+                <span class="text-gray-500">類型:</span>
+                <span class="font-semibold ml-1">4D</span>
+              </div>
+              <div>
+                <span class="text-gray-500">號碼:</span>
+                <span class="font-mono font-semibold ml-1">1234, 5678</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Transaction Item -->
+          <div class="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <p class="font-semibold text-gray-900">15#11 - 中獎</p>
+                <p class="text-sm text-gray-500">2025年11月15日</p>
+              </div>
+              <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">
+                +MYR 120
+              </span>
+            </div>
+            <div class="grid grid-cols-2 gap-2 text-sm mt-3">
+              <div>
+                <span class="text-gray-500">類型:</span>
+                <span class="font-semibold ml-1">4D</span>
+              </div>
+              <div>
+                <span class="text-gray-500">獎項:</span>
+                <span class="font-semibold ml-1">A2</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Commission Item -->
+          <div class="p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200">
+            <div class="flex justify-between items-start mb-2">
+              <div>
+                <p class="font-semibold text-blue-900">15#11 - 佣金</p>
+                <p class="text-sm text-blue-600">下線投注佣金</p>
+              </div>
+              <span class="px-3 py-1 bg-blue-600 text-white rounded-full text-sm font-bold">
+                +MYR 35
+              </span>
+            </div>
+            <div class="text-sm mt-3">
+              <span class="text-blue-600">比例:</span>
+              <span class="font-semibold ml-1">{mockUserProfile.commissionRate}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Export Button -->
+      <div class="mt-6">
+        <button class="btn btn-secondary w-full">
+          <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          匯出報表
+        </button>
+      </div>
+    </div>
+  </div>
+</Layout>

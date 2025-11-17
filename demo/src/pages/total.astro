@@ -1,0 +1,124 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { mockBets } from '../data/mockBets.js';
+
+const totalBets = mockBets.length;
+const totalAmount = mockBets.reduce((sum, bet) => sum + bet.amount, 0);
+const totalWin = mockBets.filter(b => b.status === 'won').reduce((sum, bet) => sum + (bet.winAmount || 0), 0);
+const totalProfit = totalWin - totalAmount;
+---
+
+<Layout title="總額" headerTitle="總額" backLink="/">
+  <div class="bg-gray-50 min-h-screen">
+    <!-- Summary Cards -->
+    <div class="bg-gradient-primary p-4 pb-6">
+      <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="card bg-white/95 backdrop-blur animate-scale-in">
+          <p class="text-sm text-gray-600 mb-1">總投注筆數</p>
+          <p class="text-3xl font-bold text-primary-600">{totalBets}</p>
+        </div>
+
+        <div class="card bg-white/95 backdrop-blur animate-scale-in" style="animation-delay: 0.1s">
+          <p class="text-sm text-gray-600 mb-1">總投注額</p>
+          <p class="text-2xl font-bold text-gray-900">MYR {totalAmount}</p>
+        </div>
+
+        <div class="card bg-white/95 backdrop-blur animate-scale-in" style="animation-delay: 0.2s">
+          <p class="text-sm text-gray-600 mb-1">總中獎額</p>
+          <p class="text-2xl font-bold text-green-600">MYR {totalWin}</p>
+        </div>
+
+        <div class={`card bg-white/95 backdrop-blur animate-scale-in`} style="animation-delay: 0.3s">
+          <p class="text-sm text-gray-600 mb-1">淨盈虧</p>
+          <p class={`text-2xl font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            {totalProfit >= 0 ? '+' : ''}{totalProfit}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Breakdown by Game Type -->
+    <div class="p-4">
+      <h3 class="font-bold text-gray-700 mb-4">分類統計</h3>
+
+      <div class="space-y-3">
+        <!-- 4D Breakdown -->
+        <div class="card animate-scale-in">
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-bold text-lg">4D 彩票</h4>
+            <span class="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-semibold">
+              {mockBets.filter(b => b.gameType === '4D').length} 筆
+            </span>
+          </div>
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p class="text-sm text-gray-500">投注額</p>
+              <p class="font-bold text-lg">
+                {mockBets.filter(b => b.gameType === '4D').reduce((sum, bet) => sum + bet.amount, 0)}
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">中獎額</p>
+              <p class="font-bold text-lg text-green-600">
+                {mockBets.filter(b => b.gameType === '4D' && b.status === 'won').reduce((sum, bet) => sum + (bet.winAmount || 0), 0)}
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">待開獎</p>
+              <p class="font-bold text-lg text-yellow-600">
+                {mockBets.filter(b => b.gameType === '4D' && b.status === 'pending').length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3D Breakdown -->
+        <div class="card animate-scale-in" style="animation-delay: 0.1s">
+          <div class="flex justify-between items-center mb-3">
+            <h4 class="font-bold text-lg">3D 彩票</h4>
+            <span class="px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-semibold">
+              {mockBets.filter(b => b.gameType === '3D').length} 筆
+            </span>
+          </div>
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p class="text-sm text-gray-500">投注額</p>
+              <p class="font-bold text-lg">
+                {mockBets.filter(b => b.gameType === '3D').reduce((sum, bet) => sum + bet.amount, 0)}
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">中獎額</p>
+              <p class="font-bold text-lg text-green-600">
+                {mockBets.filter(b => b.gameType === '3D' && b.status === 'won').reduce((sum, bet) => sum + (bet.winAmount || 0), 0)}
+              </p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">待開獎</p>
+              <p class="font-bold text-lg text-yellow-600">
+                {mockBets.filter(b => b.gameType === '3D' && b.status === 'pending').length}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- By Company -->
+        <div class="card animate-scale-in" style="animation-delay: 0.2s">
+          <h4 class="font-bold text-lg mb-3">公司別統計</h4>
+          <div class="space-y-2">
+            {['M', 'P', 'T', 'S'].map(company => {
+              const companyBets = mockBets.filter(b => b.betType === company);
+              const companyTotal = companyBets.reduce((sum, bet) => sum + bet.amount, 0);
+              return companyTotal > 0 ? (
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span class="font-semibold">{company} ({companyBets.length} 筆)</span>
+                  <span class="font-bold">MYR {companyTotal}</span>
+                </div>
+              ) : null;
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>

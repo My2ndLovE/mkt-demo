@@ -1,0 +1,43 @@
+---
+// Numeric keypad component for betting
+---
+
+<div class="fixed bottom-0 left-0 right-0 bg-gray-900 shadow-2xl safe-bottom animate-slide-up"
+     x-show="showKeypad"
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="translate-y-full"
+     x-transition:enter-end="translate-y-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="translate-y-0"
+     x-transition:leave-end="translate-y-full"
+     style="display: none;">
+  <div class="p-4 grid grid-cols-4 gap-3">
+    <!-- Row 1: D, 1, 2, 3 -->
+    <button @click="inputValue('D')" class="keypad-btn">D</button>
+    <button @click="inputValue('1')" class="keypad-btn">1</button>
+    <button @click="inputValue('2')" class="keypad-btn">2</button>
+    <button @click="inputValue('3')" class="keypad-btn">3</button>
+
+    <!-- Row 2: #, 4, 5, 6 -->
+    <button @click="inputValue('#')" class="keypad-btn">#</button>
+    <button @click="inputValue('4')" class="keypad-btn">4</button>
+    <button @click="inputValue('5')" class="keypad-btn">5</button>
+    <button @click="inputValue('6')" class="keypad-btn">6</button>
+
+    <!-- Row 3: *, 7, 8, 9 -->
+    <button @click="inputValue('*')" class="keypad-btn">*</button>
+    <button @click="inputValue('7')" class="keypad-btn">7</button>
+    <button @click="inputValue('8')" class="keypad-btn">8</button>
+    <button @click="inputValue('9')" class="keypad-btn">9</button>
+
+    <!-- Row 4: +, 0, IBox, Clear -->
+    <button @click="inputValue('+')" class="keypad-btn">+</button>
+    <button @click="inputValue('0')" class="keypad-btn">0</button>
+    <button @click="inputValue('IBox')" class="keypad-btn text-sm">IBox</button>
+    <button @click="clearInput()" class="keypad-btn bg-red-600 active:bg-red-700 text-sm">清除</button>
+
+    <!-- Row 5: Close and Next -->
+    <button @click="showKeypad = false" class="keypad-btn col-span-2 bg-gray-700 active:bg-gray-600">關閉</button>
+    <button @click="nextRow()" class="keypad-btn col-span-2 bg-primary-600 active:bg-primary-700">下一步</button>
+  </div>
+</div>

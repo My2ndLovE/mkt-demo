@@ -1,0 +1,70 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Keypad from '../components/Keypad.astro';
+---
+
+<Layout title="幸運" headerTitle="幸運" backLink="/">
+  <div class="bg-gradient-primary min-h-screen p-4">
+    <div x-data="{
+           inputText: 'D\\n#123',
+           total: 0,
+           showKeypad: false,
+           inputValue(val) {
+             this.inputText += val;
+           },
+           clearInput() {
+             this.inputText = '';
+             this.showKeypad = false;
+           },
+           nextRow() {
+             this.inputText += '\\n';
+           },
+           async pasteText() {
+             try {
+               const text = await navigator.clipboard.readText();
+               this.inputText += text;
+             } catch (err) {
+               console.log('Clipboard access denied');
+             }
+           }
+         }">
+
+      <!-- Main Input Area -->
+      <div class="bg-white/95 backdrop-blur rounded-2xl shadow-lg overflow-hidden animate-scale-in">
+        <!-- Total Display -->
+        <div class="bg-gradient-primary text-white px-4 py-3 flex items-center justify-between">
+          <span class="font-medium">Total:</span>
+          <span class="text-xl font-bold" x-text="`MYR ${total.toFixed(2)}`">MYR 0.00</span>
+        </div>
+
+        <!-- Text Input Area -->
+        <div class="p-4">
+          <textarea
+            x-model="inputText"
+            @click="showKeypad = true"
+            class="w-full h-80 p-4 border-2 border-gray-200 rounded-lg font-mono text-lg resize-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 outline-none bg-white"
+            placeholder="輸入號碼...&#10;&#10;範例:&#10;D&#10;#123&#10;1234#1"
+          ></textarea>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-3 px-4 pb-4">
+          <button @click="clearInput()"
+                  class="flex-1 px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg active:scale-95 transition-all">
+            Clear
+          </button>
+          <button @click="pasteText()"
+                  class="flex-1 px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg active:scale-95 transition-all">
+            Paste
+          </button>
+          <button class="flex-1 px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-orange-400 to-orange-500 text-white shadow-lg active:scale-95 transition-all">
+            Submit
+          </button>
+        </div>
+      </div>
+
+      <!-- Keypad Component -->
+      <Keypad />
+    </div>
+  </div>
+</Layout>

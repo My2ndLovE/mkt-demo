@@ -1,0 +1,138 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { mockWinningBets, mockTodayResult } from '../data/mockResults.js';
+---
+
+<Layout title="中獎" headerTitle="中獎" backLink="/">
+  <div class="bg-gray-50 min-h-screen">
+    <!-- Today's Draw Results -->
+    <div class="bg-gradient-primary p-4 pb-6">
+      <div class="card animate-scale-in">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-lg">最新開獎</h3>
+          <span class="text-sm text-gray-500">{mockTodayResult.date}</span>
+        </div>
+
+        <!-- Today's Winning Numbers by Company -->
+        <div class="space-y-3">
+          {mockTodayResult.results.map((result) => (
+            <div class="p-4 bg-gradient-to-r from-primary-50 to-blue-50 rounded-lg border-2 border-primary-100">
+              <div class="flex justify-between items-center mb-2">
+                <span class="font-bold text-primary-700 text-lg">{result.fullName}</span>
+                <span class="px-3 py-1 bg-primary-600 text-white rounded-full text-sm font-bold">
+                  {result.company}
+                </span>
+              </div>
+              <div class="grid grid-cols-3 gap-3 text-center mt-3">
+                <div>
+                  <p class="text-xs text-gray-500 mb-1">首獎</p>
+                  <p class="text-2xl font-bold text-primary-900 font-mono">{result.prizes.first}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500 mb-1">二獎</p>
+                  <p class="text-xl font-bold text-primary-700 font-mono">{result.prizes.second}</p>
+                </div>
+                <div>
+                  <p class="text-xs text-gray-500 mb-1">三獎</p>
+                  <p class="text-xl font-bold text-primary-700 font-mono">{result.prizes.third}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <!-- Winning Bets List -->
+    <div class="p-4">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-bold text-gray-700 text-lg">我的中獎單</h3>
+        <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+          {mockWinningBets.length} 筆中獎
+        </span>
+      </div>
+
+      {mockWinningBets.length === 0 ? (
+        <div class="card text-center py-12">
+          <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" />
+          </svg>
+          <p class="text-gray-500 text-lg font-medium mb-2">暫無中獎記錄</p>
+          <p class="text-gray-400 text-sm">繼續努力，祝您好運！</p>
+        </div>
+      ) : (
+        <div class="space-y-3">
+          {mockWinningBets.map((bet, index) => (
+            <div class="card animate-scale-in" style={`animation-delay: ${index * 0.1}s`}>
+              <!-- Header -->
+              <div class="flex justify-between items-start mb-4">
+                <div>
+                  <p class="text-sm text-gray-500">{bet.date}</p>
+                  <p class="text-2xl font-bold text-primary-900 font-mono mt-1">{bet.number}</p>
+                </div>
+                <div class="text-right">
+                  <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">
+                    {bet.company} • {bet.gameType}
+                  </span>
+                  <p class="text-sm text-gray-500 mt-2">獎項: {bet.prize}</p>
+                </div>
+              </div>
+
+              <!-- Prize Info -->
+              <div class="grid grid-cols-2 gap-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-100">
+                <div>
+                  <p class="text-sm text-gray-600 mb-1">投注金額</p>
+                  <p class="text-lg font-bold text-gray-900">MYR {bet.betAmount}</p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm text-gray-600 mb-1">中獎金額</p>
+                  <p class="text-2xl font-bold text-green-600">+MYR {bet.winAmount}</p>
+                </div>
+              </div>
+
+              <!-- Net Profit -->
+              <div class="mt-3 pt-3 border-t border-gray-200">
+                <div class="flex justify-between items-center">
+                  <span class="text-sm text-gray-600">淨賺</span>
+                  <span class="text-xl font-bold text-green-600">
+                    +MYR {(bet.winAmount - bet.betAmount).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <!-- Summary Card -->
+      {mockWinningBets.length > 0 && (
+        <div class="card mt-6 bg-gradient-to-br from-green-500 to-emerald-600 text-white">
+          <h4 class="font-bold text-lg mb-4">總計</h4>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-white/80 mb-1">總投注</p>
+              <p class="text-2xl font-bold">
+                MYR {mockWinningBets.reduce((sum, bet) => sum + bet.betAmount, 0)}
+              </p>
+            </div>
+            <div class="text-right">
+              <p class="text-sm text-white/80 mb-1">總中獎</p>
+              <p class="text-2xl font-bold">
+                MYR {mockWinningBets.reduce((sum, bet) => sum + bet.winAmount, 0)}
+              </p>
+            </div>
+          </div>
+          <div class="mt-4 pt-4 border-t border-white/30">
+            <div class="flex justify-between items-center">
+              <span class="text-lg">總淨利</span>
+              <span class="text-3xl font-bold">
+                +MYR {(mockWinningBets.reduce((sum, bet) => sum + bet.winAmount, 0) -
+                       mockWinningBets.reduce((sum, bet) => sum + bet.betAmount, 0)).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</Layout>

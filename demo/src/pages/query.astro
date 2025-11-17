@@ -1,0 +1,89 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { mockBets } from '../data/mockBets.js';
+---
+
+<Layout title="查詢" headerTitle="查詢" backLink="/">
+  <div class="bg-gray-50 min-h-screen">
+    <!-- Search Form -->
+    <div class="bg-gradient-primary p-4 pb-6">
+      <div class="card animate-scale-in">
+        <h3 class="font-bold text-gray-700 mb-4">彩彩</h3>
+
+        <div class="space-y-4">
+          <!-- Date Range -->
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm text-gray-600 mb-1 block">從:</label>
+              <input type="text" value="16#11" class="input text-center" readonly />
+            </div>
+            <div>
+              <label class="text-sm text-gray-600 mb-1 block">到:</label>
+              <input type="text" class="input text-center" placeholder="選擇日期" />
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div>
+            <label class="text-sm text-gray-600 mb-1 block">號碼</label>
+            <input type="text" class="input" placeholder="輸入號碼" />
+          </div>
+
+          <div>
+            <label class="text-sm text-gray-600 mb-1 block">單號</label>
+            <input type="text" class="input" placeholder="輸入單號" />
+          </div>
+
+          <!-- Search Button -->
+          <button class="btn btn-accent w-full">查詢</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results List -->
+    <div class="p-4">
+      <h3 class="font-bold text-gray-700 mb-4">查詢結果</h3>
+
+      <div class="space-y-3">
+        {mockBets.map((bet) => (
+          <div class="card card-hover animate-scale-in">
+            <div class="flex justify-between items-start mb-3">
+              <div>
+                <p class="font-bold text-lg">{bet.receipt}</p>
+                <p class="text-sm text-gray-500">{bet.fullDate}</p>
+              </div>
+              <span class={`px-3 py-1 rounded-full text-sm font-semibold ${
+                bet.status === 'won' ? 'bg-green-100 text-green-700' :
+                bet.status === 'lost' ? 'bg-red-100 text-red-700' :
+                'bg-yellow-100 text-yellow-700'
+              }`}>
+                {bet.status === 'won' ? '已中獎' : bet.status === 'lost' ? '未中獎' : '待開獎'}
+              </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <span class="text-gray-500">號碼:</span>
+                <span class="font-mono font-semibold ml-2">{bet.numbers.join(', ')}</span>
+              </div>
+              <div>
+                <span class="text-gray-500">類型:</span>
+                <span class="font-semibold ml-2">{bet.gameType} • {bet.betType}</span>
+              </div>
+              <div>
+                <span class="text-gray-500">投注額:</span>
+                <span class="font-semibold ml-2">MYR {bet.amount}</span>
+              </div>
+              {bet.winAmount && (
+                <div>
+                  <span class="text-gray-500">中獎額:</span>
+                  <span class="font-semibold text-green-600 ml-2">MYR {bet.winAmount}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</Layout>
