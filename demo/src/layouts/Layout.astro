@@ -16,10 +16,17 @@ const { title, showHeader = true, headerTitle = '', backLink } = Astro.props;
     <meta name="description" content="彩票投注系統" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="generator" content={Astro.generator} />
     <meta name="theme-color" content="#2563eb" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
+    <!-- Preconnect to Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- DNS Prefetch for faster resolution -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+
     <title>{title}</title>
   </head>
   <body>
@@ -52,6 +59,11 @@ const { title, showHeader = true, headerTitle = '', backLink } = Astro.props;
         <slot />
       </main>
     </div>
+
+    <script is:inline>
+      // Immediate paint - prevent FOUC
+      document.documentElement.style.visibility = 'visible';
+    </script>
 
     <script>
       import Alpine from 'alpinejs';
