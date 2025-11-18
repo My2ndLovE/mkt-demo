@@ -39,6 +39,16 @@ async function bootstrap(): Promise<void> {
     'http://localhost:3001',
   ]);
 
+  // Validate critical environment variables
+  const jwtSecret = configService.get<string>('jwt.secret');
+  if (!jwtSecret || jwtSecret === 'your-secret-key') {
+    logger.error(
+      '❌ CRITICAL: JWT_SECRET environment variable is not set or using default value. ' +
+        'Please set JWT_SECRET in your .env file for security.',
+    );
+    process.exit(1);
+  }
+
   // Set global prefix for all routes
   app.setGlobalPrefix('api/v1');
 

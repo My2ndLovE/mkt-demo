@@ -349,21 +349,20 @@ export class ResultsService {
     let totalWinAmount = 0;
     const commissionsCreated = 0;
 
-    // Process each bet in a transaction
-    for (const bet of pendingBets) {
-      const betProvider = bet.providers[0];
-      if (!betProvider) continue;
+    // Process all bets in a single atomic transaction
+    await this.prisma.$transaction(async (tx) => {
+      for (const bet of pendingBets) {
+        const betProvider = bet.providers[0];
+        if (!betProvider) continue;
 
-      // Check if bet won and calculate win amount
-      const { won, tier, winAmount } = this.checkBetWin(
-        bet.numbers,
-        bet.betType,
-        Number(bet.amount),
-        winningNumbers,
-      );
+        // Check if bet won and calculate win amount
+        const { won, tier, winAmount } = this.checkBetWin(
+          bet.numbers,
+          bet.betType,
+          Number(bet.amount),
+          winningNumbers,
+        );
 
-      // Update bet and bet provider
-      await this.prisma.$transaction(async (tx) => {
         // Update BetProvider
         await tx.betProvider.update({
           where: { id: betProvider.id },
@@ -392,29 +391,29 @@ export class ResultsService {
             },
           });
         }
-      });
 
-      if (won) {
-        wonBets++;
-        totalWinAmount += winAmount;
-        this.logger.log(`Bet ${bet.id} WON (${tier}): ${bet.numbers} - Win amount: ${winAmount}`);
-      } else {
-        lostBets++;
+        if (won) {
+          wonBets++;
+          totalWinAmount += winAmount;
+          this.logger.log(`Bet ${bet.id} WON (${tier}): ${bet.numbers} - Win amount: ${winAmount}`);
+        } else {
+          lostBets++;
+        }
+
+        // Note: Commission calculation would be called here
+        // For now, we just log it
+        // const commissions = await this.commissionsService.calculateCommissions(
+        //   bet.id,
+        //   won ? Number(bet.amount) - winAmount : Number(bet.amount)
+        // );
+        // commissionsCreated += commissions.length;
       }
 
-      // Note: Commission calculation would be called here
-      // For now, we just log it
-      // const commissions = await this.commissionsService.calculateCommissions(
-      //   bet.id,
-      //   won ? Number(bet.amount) - winAmount : Number(bet.amount)
-      // );
-      // commissionsCreated += commissions.length;
-    }
-
-    // Mark result as FINAL
-    await this.prisma.drawResult.update({
-      where: { id: resultId },
-      data: { status: ResultStatus.FINAL },
+      // Mark result as FINAL
+      await tx.drawResult.update({
+        where: { id: resultId },
+        data: { status: ResultStatus.FINAL },
+      });
     });
 
     const processingTime = Date.now() - startTime;
@@ -595,6 +594,51 @@ export class ResultsService {
     } catch (error) {
       this.logger.error('Result sync failed', error instanceof Error ? error.stack : String(error));
       throw error;
+    }
+  }
+
+  /**
+   * Sync from API (alias for syncResults)
+   *
+   * Called by Azure Function timer trigger for automated result sync.
+   * This method wraps syncResults to provide a consistent interface.
+   *
+   * @param providerId - Provider to sync
+   * @param gameType - Game type to sync
+   * @param drawDate - Draw date to sync
+   * @returns Sync result with draw result if successful
+   */
+  async syncFromAPI(providerId: string, gameType: string, drawDate: Date) {
+    this.logger.log(`syncFromAPI called: ${providerId} ${gameType} ${drawDate.toISOString()}`);
+
+    try {
+      const syncResult = await this.syncResults(providerId, gameType, drawDate);
+
+      // If sync was successful, try to find the created result
+      if (syncResult.success) {
+        const result = await this.prisma.drawResult.findUnique({
+          where: {
+            unique_draw: {
+              providerId,
+              gameType,
+              drawDate,
+            },
+          },
+        });
+
+        return result;
+      }
+
+      // If sync failed, return null (Azure function will handle this)
+      return null;
+    } catch (error) {
+      this.logger.error(
+        `syncFromAPI failed for ${providerId} ${gameType}:`,
+        error instanceof Error ? error.stack : String(error),
+      );
+
+      // Return null to indicate failure (Azure function will log and continue)
+      return null;
     }
   }
 

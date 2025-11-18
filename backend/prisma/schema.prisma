@@ -57,6 +57,7 @@ model User {
   commissionsSourced  Commission[] @relation("CommissionSource")
   auditLogs       AuditLog[]
   refreshTokens   RefreshToken[]
+  syncedResults   DrawResult[] @relation("DrawResultSyncedBy")
 
   @@index([uplineId], name: "idx_user_uplineId")
   @@index([moderatorId], name: "idx_user_moderatorId")
@@ -105,7 +106,7 @@ model Bet {
 
   // Agent who placed the bet
   agentId         Int
-  agent           User      @relation(fields: [agentId], references: [id])
+  agent           User      @relation(fields: [agentId], references: [id], onDelete: Restrict)
 
   // Bet Details
   gameType        String    @db.NVarChar(5) // 3D, 4D, 5D, 6D
@@ -145,20 +146,25 @@ model BetProvider {
   bet             Bet       @relation(fields: [betId], references: [id], onDelete: Cascade)
 
   providerId      String
-  provider        ServiceProvider @relation(fields: [providerId], references: [id])
+  provider        ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
 
   // Provider-specific result
   resultId        Int?
-  result          DrawResult? @relation(fields: [resultId], references: [id])
+  result          DrawResult? @relation(fields: [resultId], references: [id], onDelete: SetNull)
+
+  // Bet amount for this specific provider
+  amount          Decimal   @db.Money
 
   // Provider-specific win amount (if bet wins for this provider)
   winAmount       Decimal   @default(0) @db.Money
   status          String    @default("PENDING") @db.NVarChar(20) // PENDING, WON, LOST
 
   createdAt       DateTime  @default(now()) @db.DateTime
+  updatedAt       DateTime  @updatedAt @db.DateTime
 
   @@unique([betId, providerId], name: "unique_bet_provider")
   @@index([providerId, resultId], name: "idx_betprovider_provider_result")
+  @@index([betId, status], name: "idx_betprovider_bet_status")
   @@map("bet_providers")
 }
 
@@ -168,7 +174,7 @@ model DrawResult {
 
   // Provider Information
   providerId      String
-  provider        ServiceProvider @relation(fields: [providerId], references: [id])
+  provider        ServiceProvider @relation(fields: [providerId], references: [id], onDelete: Restrict)
 
   // Draw Details
   gameType        String    @db.NVarChar(5) // 3D, 4D, 5D, 6D
@@ -185,6 +191,7 @@ model DrawResult {
   // Sync Metadata
   syncMethod      String    @db.NVarChar(10) // AUTO (API), MANUAL (admin entry)
   syncedBy        Int?      // User ID who entered (if manual)
+  syncedByUser    User?     @relation("DrawResultSyncedBy", fields: [syncedBy], references: [id], onDelete: SetNull)
   syncedAt        DateTime  @default(now()) @db.DateTime
   status          String    @default("FINAL") @db.NVarChar(20) // PENDING, VERIFIED, FINAL
 
@@ -194,6 +201,7 @@ model DrawResult {
   @@unique([providerId, gameType, drawDate], name: "unique_draw")
   @@index([providerId, drawDate, gameType], name: "idx_result_provider_date_game")
   @@index([drawNumber], name: "idx_result_drawNumber")
+  @@index([syncedBy], name: "idx_result_syncedBy")
   @@map("draw_results")
 }
 
@@ -203,15 +211,15 @@ model Commission {
 
   // Recipient of this commission
   agentId         Int
-  agent           User      @relation("CommissionRecipient", fields: [agentId], references: [id])
+  agent           User      @relation("CommissionRecipient", fields: [agentId], references: [id], onDelete: Restrict)
 
   // Bet that generated this commission
   betId           Int
-  bet             Bet       @relation(fields: [betId], references: [id])
+  bet             Bet       @relation(fields: [betId], references: [id], onDelete: Cascade)
 
   // Source agent who placed the bet
   sourceAgentId   Int
-  sourceAgent     User      @relation("CommissionSource", fields: [sourceAgentId], references: [id])
+  sourceAgent     User      @relation("CommissionSource", fields: [sourceAgentId], references: [id], onDelete: Restrict)
 
   // Commission Calculation
   commissionRate  Decimal   @db.Decimal(5,2) // Rate at time of bet placement
@@ -263,7 +271,7 @@ model AuditLog {
 
   // User who performed the action (null for system actions)
   userId          Int?
-  user            User?     @relation(fields: [userId], references: [id])
+  user            User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   // Action Details
   action          String    @db.NVarChar(100) // BET_PLACED, AGENT_CREATED, LIMIT_ADJUSTED, etc.

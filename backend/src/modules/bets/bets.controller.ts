@@ -21,6 +21,7 @@ import {
   BetDetailsDto,
 } from './dtos';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 /**
  * Bets Controller
@@ -76,13 +77,8 @@ export class BetsController {
   })
   async placeBet(
     @Body() dto: PlaceBetDto,
-    // TODO: Replace with actual CurrentUser decorator when auth is implemented
-    // @CurrentUser('userId') agentId: number,
+    @CurrentUser('id') agentId: number,
   ): Promise<CreateBetResponseDto> {
-    // TEMPORARY: Hardcoded agent ID for development
-    // Replace with actual user ID from JWT token
-    const agentId = 1;
-
     return this.betsService.placeBet(agentId, dto);
   }
 
@@ -106,14 +102,9 @@ export class BetsController {
   })
   async findAll(
     @Query() query: QueryBetDto,
-    // TODO: Replace with actual CurrentUser decorator
-    // @CurrentUser('userId') agentId: number,
-    // @CurrentUser('role') role: string,
+    @CurrentUser('id') agentId: number,
+    @CurrentUser('role') role: string,
   ): Promise<BetListResponseDto> {
-    // TEMPORARY: Hardcoded values for development
-    const agentId = 1;
-    const role = 'AGENT';
-
     return this.betsService.findAll(agentId, query, role);
   }
 
@@ -144,12 +135,8 @@ export class BetsController {
   })
   async findOne(
     @Param('id', ParseIntPipe) id: number,
-    // TODO: Replace with actual CurrentUser decorator
-    // @CurrentUser('userId') agentId: number,
+    @CurrentUser('id') agentId: number,
   ): Promise<BetDetailsDto> {
-    // TEMPORARY: Hardcoded agent ID for development
-    const agentId = 1;
-
     return this.betsService.findOne(id, agentId);
   }
 
@@ -187,12 +174,8 @@ export class BetsController {
   })
   async cancelBet(
     @Param('id', ParseIntPipe) id: number,
-    // TODO: Replace with actual CurrentUser decorator
-    // @CurrentUser('userId') agentId: number,
+    @CurrentUser('id') agentId: number,
   ): Promise<BetDetailsDto> {
-    // TEMPORARY: Hardcoded agent ID for development
-    const agentId = 1;
-
     return this.betsService.cancelBet(id, agentId);
   }
 
@@ -228,12 +211,8 @@ export class BetsController {
   })
   async findByReceipt(
     @Param('receiptNumber') receiptNumber: string,
-    // TODO: Replace with actual CurrentUser decorator
-    // @CurrentUser('userId') agentId: number,
+    @CurrentUser('id') agentId: number,
   ): Promise<BetDetailsDto> {
-    // TEMPORARY: Hardcoded agent ID for development
-    const agentId = 1;
-
     return this.betsService.findByReceipt(receiptNumber, agentId);
   }
 }

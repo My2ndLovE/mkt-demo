@@ -163,7 +163,7 @@ export class LimitsService {
     name: 'reset-weekly-limits',
     timeZone: 'Asia/Kuala_Lumpur',
   })
-  async resetWeeklyLimits(): Promise<void> {
+  async resetWeeklyLimits(): Promise<{ affectedUsers: number; totalLimit: number }> {
     this.logger.log('Starting weekly limit reset...');
 
     const startTime = Date.now();
@@ -203,6 +203,8 @@ export class LimitsService {
         `Weekly limit reset completed successfully. ` +
           `Affected users: ${usersToReset}, Total limit: ${totalLimit}, Duration: ${duration}ms`,
       );
+
+      return { affectedUsers: usersToReset, totalLimit };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(

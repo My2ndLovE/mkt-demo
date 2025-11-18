@@ -500,6 +500,8 @@ export class BetsService {
    * Example: 20251118-00001-0001
    *
    * The sequence number is based on the number of bets placed today by this agent.
+   * Includes retry logic to handle race conditions when multiple concurrent bets
+   * are placed by the same agent.
    *
    * @param agentId - Agent ID
    * @param tx - Prisma transaction client (optional)
@@ -512,33 +514,60 @@ export class BetsService {
   ): Promise<string> {
     const prisma = tx || this.prisma;
 
-    // Get current date in YYYYMMDD format
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const datePart = `${year}${month}${day}`;
+    // Retry up to 5 times with random offset to handle race conditions
+    const maxRetries = 5;
 
-    // Get agent ID part (5 digits, padded)
-    const agentPart = String(agentId).padStart(5, '0');
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      // Get current date in YYYYMMDD format
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const datePart = `${year}${month}${day}`;
 
-    // Get count of bets today for this agent
-    const todayStart = new Date(year, now.getMonth(), now.getDate());
-    const todayEnd = new Date(year, now.getMonth(), now.getDate(), 23, 59, 59, 999);
+      // Get agent ID part (5 digits, padded)
+      const agentPart = String(agentId).padStart(5, '0');
 
-    const count = await prisma.bet.count({
-      where: {
-        agentId,
-        createdAt: {
-          gte: todayStart,
-          lte: todayEnd,
+      // Get count of bets today for this agent
+      const todayStart = new Date(year, now.getMonth(), now.getDate());
+      const todayEnd = new Date(year, now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+      const count = await prisma.bet.count({
+        where: {
+          agentId,
+          createdAt: {
+            gte: todayStart,
+            lte: todayEnd,
+          },
         },
-      },
-    });
+      });
 
-    // Generate sequence number (4 digits, padded)
-    const sequence = String(count + 1).padStart(4, '0');
+      // Generate sequence number (4 digits, padded)
+      // Add attempt number to avoid collisions on retry
+      const sequence = String(count + 1 + attempt).padStart(4, '0');
+      const receiptNumber = `${datePart}-${agentPart}-${sequence}`;
 
-    return `${datePart}-${agentPart}-${sequence}`;
+      // Check if this receipt number already exists
+      const existing = await prisma.bet.findUnique({
+        where: { receiptNumber },
+      });
+
+      if (!existing) {
+        return receiptNumber;
+      }
+
+      // If receipt exists and this is not the last attempt, wait a random time before retry
+      if (attempt < maxRetries - 1) {
+        // Random delay between 10-50ms to reduce collision probability
+        const delay = Math.floor(Math.random() * 40) + 10;
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+
+    // Fallback: Use timestamp-based suffix if all retries failed
+    const timestamp = Date.now().toString().slice(-4);
+    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const agentPart = String(agentId).padStart(5, '0');
+    return `${datePart}-${agentPart}-${timestamp}`;
   }
 }

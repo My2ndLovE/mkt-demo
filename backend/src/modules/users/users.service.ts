@@ -334,7 +334,7 @@ export class UsersService {
 
     // SQL Server recursive CTE for upline chain
     const uplineChain = await this.prisma.$queryRaw<User[]>`
-      WITH RECURSIVE UserHierarchy AS (
+      WITH UserHierarchy AS (
         SELECT id, uplineId, username, fullName, role, commissionRate, weeklyLimit, 0 AS level
         FROM users
         WHERE id = ${userId}
@@ -385,7 +385,7 @@ export class UsersService {
 
     // SQL Server recursive CTE for descendants
     const descendants = await this.prisma.$queryRaw<any[]>`
-      WITH RECURSIVE UserHierarchy AS (
+      WITH UserHierarchy AS (
         SELECT id, uplineId, username, fullName, role, commissionRate, weeklyLimit, active, 0 AS level
         FROM users
         WHERE id = ${userId}
