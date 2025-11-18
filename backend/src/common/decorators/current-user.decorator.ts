@@ -5,22 +5,59 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
  *
  * Represents the authenticated user data extracted from JWT token.
  * This data is attached to the request object by the JWT authentication guard.
+ * Matches the user object returned by JwtStrategy.validate()
  */
 export interface CurrentUserPayload {
   /** User's unique identifier */
-  userId: string;
+  id: number;
 
-  /** User's email address */
-  email: string;
+  /** Username */
+  username: string;
 
-  /** User's role (SUPER_ADMIN, OPERATOR, etc.) */
+  /** User's role (ADMIN, MODERATOR, AGENT) */
   role: string;
 
-  /** User's agent ID (for multi-level hierarchy) */
-  agentId?: string;
+  /** Full name */
+  fullName: string;
 
-  /** User's parent agent ID (for hierarchy navigation) */
-  parentAgentId?: string;
+  /** Email address (optional) */
+  email?: string;
+
+  /** Phone number (optional) */
+  phone?: string;
+
+  /** Upline user ID (for hierarchy) */
+  uplineId?: number;
+
+  /** Moderator ID (for organization) */
+  moderatorId?: number;
+
+  /** Weekly betting limit */
+  weeklyLimit: number;
+
+  /** Weekly amount used */
+  weeklyUsed: number;
+
+  /** Commission rate */
+  commissionRate: number;
+
+  /** Can create sub-agents */
+  canCreateSubs: boolean;
+
+  /** Account active status */
+  active: boolean;
+
+  /** First login flag */
+  firstLogin: boolean;
+
+  /** Last login timestamp */
+  lastLoginAt?: Date;
+
+  /** Account creation timestamp */
+  createdAt: Date;
+
+  /** Last update timestamp */
+  updatedAt: Date;
 
   /** Token issued at timestamp */
   iat?: number;

@@ -92,10 +92,10 @@ export class UsersController {
     @CurrentUser() currentUser: CurrentUserPayload,
   ) {
     this.logger.log(
-      `User creation requested: ${createUserDto.username} (${createUserDto.role}) by ${currentUser.userId}`,
+      `User creation requested: ${createUserDto.username} (${createUserDto.role}) by ${currentUser.id}`,
     );
 
-    const createdUser = await this.usersService.create(createUserDto, parseInt(currentUser.userId));
+    const createdUser = await this.usersService.create(createUserDto, currentUser.id);
 
     return {
       message: 'User created successfully',
@@ -153,7 +153,7 @@ export class UsersController {
     description: 'Current user profile',
   })
   async getMe(@CurrentUser() currentUser: CurrentUserPayload) {
-    const user = await this.usersService.findOne(parseInt(currentUser.userId));
+    const user = await this.usersService.findOne(currentUser.id);
 
     return {
       data: user,
@@ -245,7 +245,7 @@ export class UsersController {
     const updatedUser = await this.usersService.update(
       id,
       updateUserDto,
-      parseInt(currentUser.userId),
+      currentUser.id,
       isAdmin,
     );
 

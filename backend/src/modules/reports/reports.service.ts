@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DateRangeDto } from './dtos';
 
@@ -332,19 +333,21 @@ export class ReportsService {
   async getPopularNumbers(dateRange: DateRangeDto, limit = 20) {
     const { startDate, endDate } = this.getDateRange(dateRange);
 
-    // SQL query to aggregate bet numbers
+    // Safely construct SQL query using Prisma.sql to prevent SQL injection
     const popularNumbers = await this.prisma.$queryRaw<
       Array<{ numbers: string; totalBets: number; totalAmount: number }>
-    >`
-      SELECT TOP ${limit}
-        numbers,
-        COUNT(*) as totalBets,
-        SUM(CAST(amount AS FLOAT)) as totalAmount
-      FROM bets
-      WHERE createdAt >= ${startDate} AND createdAt <= ${endDate}
-      GROUP BY numbers
-      ORDER BY COUNT(*) DESC, SUM(CAST(amount AS FLOAT)) DESC;
-    `;
+    >(
+      Prisma.sql`
+        SELECT TOP (${limit})
+          numbers,
+          COUNT(*) as totalBets,
+          SUM(CAST(amount AS FLOAT)) as totalAmount
+        FROM bets
+        WHERE createdAt >= ${startDate} AND createdAt <= ${endDate}
+        GROUP BY numbers
+        ORDER BY COUNT(*) DESC, SUM(CAST(amount AS FLOAT)) DESC
+      `
+    );
 
     return {
       period: {
@@ -446,22 +449,24 @@ export class ReportsService {
    * @private
    */
   private async getUserAndDownlines(userId: number): Promise<number[]> {
-    const result = await this.prisma.$queryRaw<Array<{ id: number }>>`
-      WITH DownlineTree AS (
-        -- Base case: the user themselves
-        SELECT id
-        FROM users
-        WHERE id = ${userId}
+    const result = await this.prisma.$queryRaw<Array<{ id: number }>>(
+      Prisma.sql`
+        WITH DownlineTree AS (
+          -- Base case: the user themselves
+          SELECT id
+          FROM users
+          WHERE id = ${userId}
 
-        UNION ALL
+          UNION ALL
 
-        -- Recursive case: all downlines
-        SELECT u.id
-        FROM users u
-        INNER JOIN DownlineTree dt ON u.uplineId = dt.id
-      )
-      SELECT id FROM DownlineTree;
-    `;
+          -- Recursive case: all downlines
+          SELECT u.id
+          FROM users u
+          INNER JOIN DownlineTree dt ON u.uplineId = dt.id
+        )
+        SELECT id FROM DownlineTree
+      `
+    );
 
     return result.map((row) => row.id);
   }

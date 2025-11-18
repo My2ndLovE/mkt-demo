@@ -104,6 +104,7 @@ export class BetsService {
         data: dto.providerIds.map((providerId) => ({
           betId: createdBet.id,
           providerId,
+          amount: dto.amountPerProvider,
           status: 'PENDING',
           winAmount: 0,
         })),

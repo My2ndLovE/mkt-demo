@@ -41,10 +41,11 @@ async function bootstrap(): Promise<void> {
 
   // Validate critical environment variables
   const jwtSecret = configService.get<string>('jwt.secret');
-  if (!jwtSecret || jwtSecret === 'your-secret-key') {
+  const defaultSecret = 'lottery-sandbox-secret-key-change-in-production';
+  if (!jwtSecret || jwtSecret === defaultSecret) {
     logger.error(
       '❌ CRITICAL: JWT_SECRET environment variable is not set or using default value. ' +
-        'Please set JWT_SECRET in your .env file for security.',
+        'Please set a strong JWT_SECRET in your .env file for security.',
     );
     process.exit(1);
   }

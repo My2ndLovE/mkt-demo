@@ -391,9 +391,9 @@ async function main() {
   // Create bet-provider relationships (multi-provider bet)
   await prisma.betProvider.createMany({
     data: [
-      { betId: bet1.id, providerId: magnum.id, status: 'PENDING', winAmount: 0 },
-      { betId: bet1.id, providerId: sportsToto.id, status: 'PENDING', winAmount: 0 },
-      { betId: bet1.id, providerId: damacai.id, status: 'PENDING', winAmount: 0 }
+      { betId: bet1.id, providerId: magnum.id, amount: 10, status: 'PENDING', winAmount: 0 },
+      { betId: bet1.id, providerId: sportsToto.id, amount: 10, status: 'PENDING', winAmount: 0 },
+      { betId: bet1.id, providerId: damacai.id, amount: 10, status: 'PENDING', winAmount: 0 }
     ]
   });
 
