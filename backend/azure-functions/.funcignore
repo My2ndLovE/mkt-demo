@@ -1,0 +1,17 @@
+*.js.map
+*.ts
+.git*
+.vscode
+local.settings.json
+test
+tsconfig.json
+.editorconfig
+.eslintrc
+.prettierrc
+src/
+prisma/
+node_modules/@types/
+coverage/
+*.spec.ts
+*.test.ts
+README.md

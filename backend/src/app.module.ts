@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ProvidersModule } from './modules/providers/providers.module';
@@ -10,6 +11,7 @@ import { LimitsModule } from './modules/limits/limits.module';
 import { UsersModule } from './modules/users/users.module';
 import { ResultsModule } from './modules/results/results.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
+import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -36,6 +38,9 @@ import configuration from './config/configuration';
       max: Number(process.env.CACHE_MAX) || 100, // max items
     }),
 
+    // Scheduling
+    ScheduleModule.forRoot(),
+
     // Core Modules
     PrismaModule,
     AuthModule,
@@ -47,6 +52,7 @@ import configuration from './config/configuration';
     UsersModule,
     ResultsModule,
     CommissionsModule,
+    SchedulerModule,
     // ReportsModule,
   ],
 })
