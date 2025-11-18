@@ -4,6 +4,9 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ProvidersModule } from './modules/providers/providers.module';
+import { BetsModule } from './modules/bets/bets.module';
+import { LimitsModule } from './modules/limits/limits.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -34,11 +37,11 @@ import configuration from './config/configuration';
     PrismaModule,
     AuthModule,
 
-    // Feature Modules (will be added in subsequent phases)
+    // Feature Modules
+    ProvidersModule,
+    BetsModule,
+    LimitsModule,
     // UsersModule,
-    // ProvidersModule,
-    // BetsModule,
-    // LimitsModule,
     // ResultsModule,
     // CommissionsModule,
     // ReportsModule,

@@ -46,7 +46,11 @@
     "reflect-metadata": "^0.2.1",
     "rxjs": "^7.8.1",
     "zod": "^3.22.4",
-    "exceljs": "^4.4.0"
+    "exceljs": "^4.4.0",
+    "nanoid": "^3.3.7"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.3.0",
