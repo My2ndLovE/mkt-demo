@@ -18,11 +18,9 @@ import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { BetsModule } from './modules/bets/bets.module';
 import { UsersModule } from './modules/users/users.module';
 import { ProvidersModule } from './modules/providers/providers.module';
-// import { LimitsModule } from './modules/limits/limits.module';
-// import { ResultsModule } from './modules/results/results.module';
-// import { CommissionsModule } from './modules/commissions/commissions.module';
+import { ResultsModule } from './modules/results/results.module';
+import { CommissionsModule } from './modules/commissions/commissions.module';
 // import { ReportsModule } from './modules/reports/reports.module';
-// import { AuditModule } from './modules/audit/audit.module';
 
 @Module({
   imports: [
@@ -60,11 +58,9 @@ import { ProvidersModule } from './modules/providers/providers.module';
     BetsModule,
     UsersModule,
     ProvidersModule,
-    // LimitsModule,
-    // ResultsModule,
-    // CommissionsModule,
+    ResultsModule,
+    CommissionsModule,
     // ReportsModule,
-    // AuditModule,
   ],
   controllers: [AppController],
   providers: [
