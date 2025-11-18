@@ -5,6 +5,8 @@ import {
   Query,
   Body,
   UseGuards,
+  Param,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -13,12 +15,14 @@ import {
   ApiBearerAuth,
   ApiQuery,
   ApiBody,
+  ApiParam,
 } from '@nestjs/swagger';
 import { SyncService } from './sync.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { ManualSyncDto } from './dto/sync-result.dto';
+import { nanoid } from 'nanoid';
 
 @ApiTags('sync')
 @Controller('sync')
@@ -62,14 +66,15 @@ export class SyncController {
   }
 
   /**
-   * Bulk sync for date range
+   * FIX H-3: Bulk sync for date range (background job)
+   * Returns job ID immediately, processes in background
    */
   @Post('bulk')
   @Roles('ADMIN')
   @ApiOperation({
-    summary: 'Bulk sync results for a date range',
+    summary: 'Bulk sync results for a date range (background job)',
     description:
-      'Admin only - Sync multiple dates at once (use carefully to avoid rate limits)',
+      'Admin only - Starts background sync job for date range. Returns job ID immediately for progress tracking.',
   })
   @ApiBody({
     schema: {
@@ -96,19 +101,14 @@ export class SyncController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Bulk sync completed',
+    description: 'Bulk sync job started',
     schema: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          success: { type: 'boolean' },
-          provider: { type: 'string' },
-          drawDate: { type: 'string' },
-          resultId: { type: 'number' },
-          betsProcessed: { type: 'number' },
-          error: { type: 'string' },
-        },
+      type: 'object',
+      properties: {
+        jobId: { type: 'string', example: 'abc123xyz' },
+        message: { type: 'string', example: 'Bulk sync started' },
+        statusEndpoint: { type: 'string', example: '/sync/job-status/abc123xyz' },
+        totalDays: { type: 'number', example: 31 },
       },
     },
   })
@@ -120,11 +120,35 @@ export class SyncController {
       endDate: string;
     },
   ) {
-    return this.syncService.bulkSync(
-      body.providerCode,
-      body.startDate,
-      body.endDate,
-    );
+    // Generate unique job ID
+    const jobId = nanoid();
+
+    // Calculate total days for response
+    const start = new Date(body.startDate);
+    const end = new Date(body.endDate);
+    const totalDays =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Start background job (fire and forget)
+    this.syncService
+      .bulkSyncBackground(
+        body.providerCode,
+        body.startDate,
+        body.endDate,
+        jobId,
+      )
+      .catch((error) => {
+        console.error(`Bulk sync job ${jobId} failed:`, error);
+      });
+
+    // Return job ID immediately
+    return {
+      jobId,
+      message: 'Bulk sync job started successfully',
+      statusEndpoint: `/sync/job-status/${jobId}`,
+      totalDays,
+      estimatedDuration: `${Math.ceil((totalDays * 1.5) / 60)} minutes`,
+    };
   }
 
   /**
@@ -238,5 +262,106 @@ export class SyncController {
       message: 'Daily sync job triggered',
       note: 'Check logs and audit trail for results',
     };
+  }
+
+  /**
+   * FIX H-3: Get background job status
+   */
+  @Get('job-status/:jobId')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'Get background sync job status',
+    description: 'Check progress of a background bulk sync job',
+  })
+  @ApiParam({
+    name: 'jobId',
+    description: 'Job ID returned from bulk sync endpoint',
+    example: 'abc123xyz',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Job status retrieved',
+    schema: {
+      type: 'object',
+      properties: {
+        jobId: { type: 'string' },
+        status: { type: 'string', enum: ['running', 'completed', 'failed'] },
+        provider: { type: 'string' },
+        startDate: { type: 'string' },
+        endDate: { type: 'string' },
+        totalDays: { type: 'number' },
+        completed: { type: 'number' },
+        successful: { type: 'number' },
+        failed: { type: 'number' },
+        percentage: { type: 'number' },
+        lastProcessedDate: { type: 'string' },
+        startedAt: { type: 'string' },
+        completedAt: { type: 'string' },
+        results: { type: 'array' },
+      },
+    },
+  })
+  @ApiResponse({ status: 404, description: 'Job not found' })
+  async getJobStatus(@Param('jobId') jobId: string) {
+    const job = this.syncService.getJobProgress(jobId);
+
+    if (!job) {
+      throw new NotFoundException(
+        `Sync job ${jobId} not found. Jobs are retained for 24 hours.`,
+      );
+    }
+
+    return job;
+  }
+
+  /**
+   * FIX H-3: List all background jobs
+   */
+  @Get('jobs')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'List all background sync jobs',
+    description: 'Get list of all sync jobs (running and completed)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Jobs list retrieved',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          jobId: { type: 'string' },
+          status: { type: 'string' },
+          provider: { type: 'string' },
+          totalDays: { type: 'number' },
+          completed: { type: 'number' },
+          percentage: { type: 'number' },
+          startedAt: { type: 'string' },
+          completedAt: { type: 'string' },
+        },
+      },
+    },
+  })
+  async getAllJobs() {
+    const jobs = this.syncService.getAllJobs();
+
+    // Return summary view (without full results array)
+    return jobs.map((job) => ({
+      jobId: job.jobId,
+      status: job.status,
+      provider: job.provider,
+      startDate: job.startDate,
+      endDate: job.endDate,
+      totalDays: job.totalDays,
+      completed: job.completed,
+      successful: job.successful,
+      failed: job.failed,
+      percentage: job.percentage,
+      lastProcessedDate: job.lastProcessedDate,
+      startedAt: job.startedAt,
+      completedAt: job.completedAt,
+      resultsCount: job.results.length,
+    }));
   }
 }

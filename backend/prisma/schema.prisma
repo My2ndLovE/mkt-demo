@@ -130,8 +130,11 @@ model Bet {
   // Relations
   commissions Commission[]
 
+  // FIX H-2: Performance indexes for common query patterns
   @@index([agentId, status], map: "idx_bet_agentId_status")
+  @@index([agentId, createdAt(sort: Desc)], map: "idx_bet_agent_created") // For agent reports by date
   @@index([status], map: "idx_bet_status")
+  @@index([status, createdAt], map: "idx_bet_status_created") // For status + date filtering
   @@index([drawDate], map: "idx_bet_drawDate")
   @@index([receiptNumber], map: "idx_bet_receiptNumber")
   @@index([createdAt], map: "idx_bet_createdAt")
@@ -168,8 +171,9 @@ model DrawResult {
   bets Bet[]
 
   @@unique([providerId, gameType, drawDate], map: "unique_draw")
+  // FIX H-2: Performance indexes for common query patterns
   @@index([providerId, drawDate, gameType], map: "idx_result_provider_draw_game")
-  @@index([drawDate], map: "idx_result_drawDate")
+  @@index([drawDate(sort: Desc)], map: "idx_result_drawDate") // For date-ordered result queries
   @@index([drawNumber], map: "idx_result_drawNumber")
   @@index([gameType], map: "idx_result_gameType")
   @@map("draw_results")
@@ -201,7 +205,10 @@ model Commission {
   // Metadata
   createdAt DateTime @default(now()) @db.DateTime
 
+  // FIX H-2: Performance indexes for common query patterns
   @@index([agentId], map: "idx_commission_agentId")
+  @@index([agentId, createdAt(sort: Desc)], map: "idx_commission_agent_created") // For agent commission reports
+  @@index([betId], map: "idx_commission_betId") // For bet commission lookup
   @@index([betId, level], map: "idx_commission_betId_level")
   @@index([sourceAgentId], map: "idx_commission_sourceAgentId")
   @@index([createdAt], map: "idx_commission_createdAt")

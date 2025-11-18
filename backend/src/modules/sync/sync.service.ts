@@ -12,11 +12,34 @@ import {
 } from './dto/sync-result.dto';
 import { firstValueFrom } from 'rxjs';
 
+// FIX H-3: Job progress tracking for background sync
+interface SyncJobProgress {
+  jobId: string;
+  status: 'running' | 'completed' | 'failed';
+  provider: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  completed: number;
+  successful: number;
+  failed: number;
+  percentage: number;
+  lastProcessedDate?: string;
+  results: SyncResult[];
+  error?: string;
+  startedAt: Date;
+  completedAt?: Date;
+}
+
 @Injectable()
 export class SyncService {
   private readonly logger = new Logger(SyncService.name);
   private readonly MAX_RETRIES = 3;
   private readonly RETRY_DELAY = 2000; // 2 seconds
+
+  // FIX H-3: In-memory job tracker (use Redis/database in production)
+  private readonly syncJobs = new Map<string, SyncJobProgress>();
+  private readonly JOB_RETENTION_HOURS = 24; // Keep job status for 24 hours
 
   constructor(
     private http: HttpService,
@@ -24,7 +47,10 @@ export class SyncService {
     private prisma: PrismaService,
     private resultsService: ResultsService,
     private providersService: ProvidersService,
-  ) {}
+  ) {
+    // Cleanup old jobs every hour
+    setInterval(() => this.cleanupOldJobs(), 60 * 60 * 1000);
+  }
 
   /**
    * Automated sync job - Runs daily at 9 PM SGT
@@ -447,6 +473,163 @@ export class SyncService {
       this.logger.error(
         `Failed to log sync summary: ${error instanceof Error ? error.message : String(error)}`,
       );
+    }
+  }
+
+  /**
+   * FIX H-3: Background bulk sync with progress tracking
+   * Returns job ID immediately, processes in background
+   */
+  async bulkSyncBackground(
+    providerCode: string,
+    startDate: string,
+    endDate: string,
+    jobId: string,
+  ): Promise<void> {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const totalDays =
+      Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    // Initialize job progress
+    const job: SyncJobProgress = {
+      jobId,
+      status: 'running',
+      provider: providerCode,
+      startDate,
+      endDate,
+      totalDays,
+      completed: 0,
+      successful: 0,
+      failed: 0,
+      percentage: 0,
+      results: [],
+      startedAt: new Date(),
+    };
+    this.syncJobs.set(jobId, job);
+
+    this.logger.log(
+      `Starting background bulk sync job ${jobId}: ${providerCode} from ${startDate} to ${endDate} (${totalDays} days)`,
+    );
+
+    try {
+      const current = new Date(start);
+      while (current <= end) {
+        const dateStr = current.toISOString().split('T')[0];
+
+        try {
+          const result = await this.syncProviderResults(
+            providerCode,
+            dateStr,
+            SyncProvider.MAGAYO,
+          );
+          job.results.push(result);
+          if (result.success) {
+            job.successful++;
+          } else {
+            job.failed++;
+          }
+        } catch (error) {
+          const errorResult: SyncResult = {
+            success: false,
+            provider: providerCode,
+            drawDate: dateStr,
+            error:
+              error instanceof Error ? error.message : 'Unknown sync error',
+          };
+          job.results.push(errorResult);
+          job.failed++;
+          this.logger.error(
+            `Background sync failed for ${dateStr}: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
+
+        // Update progress
+        job.completed++;
+        job.percentage = (job.completed / job.totalDays) * 100;
+        job.lastProcessedDate = dateStr;
+        this.syncJobs.set(jobId, job);
+
+        // Delay to avoid rate limiting
+        await this.sleep(1500);
+
+        // Move to next day
+        current.setDate(current.getDate() + 1);
+      }
+
+      // Mark job as completed
+      job.status = 'completed';
+      job.completedAt = new Date();
+      this.syncJobs.set(jobId, job);
+
+      // Log summary
+      await this.prisma.auditLog.create({
+        data: {
+          userId: 1,
+          action: 'BULK_RESULT_SYNC',
+          metadata: JSON.stringify({
+            jobId,
+            provider: providerCode,
+            startDate,
+            endDate,
+            totalDays,
+            successful: job.successful,
+            failed: job.failed,
+            duration: job.completedAt.getTime() - job.startedAt.getTime(),
+          }),
+        },
+      });
+
+      this.logger.log(
+        `Background bulk sync job ${jobId} completed: ${job.successful} successful, ${job.failed} failed`,
+      );
+    } catch (error) {
+      job.status = 'failed';
+      job.error =
+        error instanceof Error ? error.message : 'Unknown job error';
+      job.completedAt = new Date();
+      this.syncJobs.set(jobId, job);
+
+      this.logger.error(
+        `Background bulk sync job ${jobId} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
+
+  /**
+   * FIX H-3: Get job progress status
+   */
+  getJobProgress(jobId: string): SyncJobProgress | undefined {
+    return this.syncJobs.get(jobId);
+  }
+
+  /**
+   * FIX H-3: List all jobs (for admin)
+   */
+  getAllJobs(): SyncJobProgress[] {
+    return Array.from(this.syncJobs.values()).sort(
+      (a, b) => b.startedAt.getTime() - a.startedAt.getTime(),
+    );
+  }
+
+  /**
+   * FIX H-3: Cleanup old jobs
+   */
+  private cleanupOldJobs(): void {
+    const cutoffTime =
+      Date.now() - this.JOB_RETENTION_HOURS * 60 * 60 * 1000;
+    let cleaned = 0;
+
+    for (const [jobId, job] of this.syncJobs.entries()) {
+      const jobTime = (job.completedAt || job.startedAt).getTime();
+      if (jobTime < cutoffTime) {
+        this.syncJobs.delete(jobId);
+        cleaned++;
+      }
+    }
+
+    if (cleaned > 0) {
+      this.logger.log(`Cleaned up ${cleaned} old sync jobs`);
     }
   }
 
