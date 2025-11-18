@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { ReportQueryDto } from './dto/report-query.dto';
+import { ReportQueryDto, PaginationMetadata } from './dto/report-query.dto';
 import { SafeJsonParser } from '../../common/utils/safe-json-parser.util';
 import * as ExcelJS from 'exceljs';
 
@@ -11,6 +11,7 @@ export class ReportsService {
   /**
    * A-1: Agent Bet Summary Report
    * Shows betting activity summary for an agent
+   * FIX C-5: Added pagination support
    */
   async getAgentBetSummary(agentId: number, query: ReportQueryDto) {
     const where: Record<string, unknown> = { agentId };
@@ -29,6 +30,15 @@ export class ReportsService {
       }
     }
 
+    // Calculate pagination
+    const page = query.page || 1;
+    const pageSize = Math.min(query.pageSize || 100, 1000); // Max 1000 records
+    const skip = (page - 1) * pageSize;
+
+    // Get total count for pagination metadata
+    const totalCount = await this.prisma.bet.count({ where });
+
+    // Get paginated bets
     const bets = await this.prisma.bet.findMany({
       where,
       select: {
@@ -44,17 +54,31 @@ export class ReportsService {
         createdAt: true,
       },
       orderBy: { createdAt: 'desc' },
+      skip,
+      take: pageSize,
+    });
+
+    // Calculate summary statistics (still based on total, not paginated)
+    const statusCounts = await this.prisma.bet.groupBy({
+      by: ['status'],
+      where,
+      _count: true,
+    });
+
+    const totalAmount = await this.prisma.bet.aggregate({
+      where,
+      _sum: { amount: true },
     });
 
     const summary = {
-      totalBets: bets.length,
-      totalAmount: bets.reduce((sum, bet) => sum + Number(bet.amount), 0),
+      totalBets: totalCount,
+      totalAmount: Number(totalAmount._sum.amount || 0),
       byStatus: {
-        pending: bets.filter((b) => b.status === 'PENDING').length,
-        won: bets.filter((b) => b.status === 'WON').length,
-        lost: bets.filter((b) => b.status === 'LOST').length,
-        partial: bets.filter((b) => b.status === 'PARTIAL').length,
-        cancelled: bets.filter((b) => b.status === 'CANCELLED').length,
+        pending: statusCounts.find((s) => s.status === 'PENDING')?._count || 0,
+        won: statusCounts.find((s) => s.status === 'WON')?._count || 0,
+        lost: statusCounts.find((s) => s.status === 'LOST')?._count || 0,
+        partial: statusCounts.find((s) => s.status === 'PARTIAL')?._count || 0,
+        cancelled: statusCounts.find((s) => s.status === 'CANCELLED')?._count || 0,
       },
       byGameType: this.groupBy(bets, 'gameType'),
       byBetType: this.groupBy(bets, 'betType'),
@@ -64,6 +88,7 @@ export class ReportsService {
         providers: SafeJsonParser.parseArray<string>(b.providers),
         results: SafeJsonParser.parseArray(b.results),
       })),
+      pagination: this.buildPaginationMetadata(page, pageSize, totalCount),
     };
 
     return summary;
@@ -72,6 +97,7 @@ export class ReportsService {
   /**
    * A-2: Agent Win/Loss Report
    * Shows detailed win/loss analysis for an agent
+   * FIX C-5: Added pagination to prevent memory exhaustion
    */
   async getAgentWinLoss(agentId: number, query: ReportQueryDto) {
     const where: Record<string, unknown> = {
@@ -93,6 +119,15 @@ export class ReportsService {
       }
     }
 
+    // FIX C-5: Add pagination
+    const page = query.page || 1;
+    const pageSize = Math.min(query.pageSize || 100, 1000);
+    const skip = (page - 1) * pageSize;
+
+    // Get total count for pagination metadata
+    const totalCount = await this.prisma.bet.count({ where });
+
+    // Get paginated bets
     const bets = await this.prisma.bet.findMany({
       where,
       select: {
@@ -106,8 +141,12 @@ export class ReportsService {
         results: true,
         createdAt: true,
       },
+      skip,
+      take: pageSize,
+      orderBy: { createdAt: 'desc' },
     });
 
+    // Map paginated bets to win/loss data
     const winLossData = bets.map((bet) => {
       const results = SafeJsonParser.parseArray<{ winAmount: number }>(bet.results);
       const totalWin = results.reduce(
@@ -129,27 +168,39 @@ export class ReportsService {
       };
     });
 
-    const summary = {
-      totalBets: bets.length,
-      totalBetAmount: bets.reduce((sum, b) => sum + Number(b.amount), 0),
-      totalWinAmount: winLossData.reduce((sum, w) => sum + w.winAmount, 0),
-      totalProfitLoss: winLossData.reduce((sum, w) => sum + w.netProfitLoss, 0),
-      winRate:
-        bets.length > 0
-          ? (bets.filter((b) => b.status === 'WON' || b.status === 'PARTIAL')
-              .length /
-              bets.length) *
-            100
-          : 0,
-      details: winLossData,
-    };
+    // Calculate summary stats across ALL records (not just current page)
+    const [statusCounts, betStats] = await Promise.all([
+      this.prisma.bet.groupBy({
+        by: ['status'],
+        where,
+        _count: true,
+      }),
+      this.prisma.bet.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
+    ]);
 
-    return summary;
+    const totalBetAmount = Number(betStats._sum.amount || 0);
+    const wonCount = statusCounts.find((s) => s.status === 'WON')?._count || 0;
+    const partialCount = statusCounts.find((s) => s.status === 'PARTIAL')?._count || 0;
+    const winRate = totalCount > 0 ? ((wonCount + partialCount) / totalCount) * 100 : 0;
+
+    return {
+      summary: {
+        totalBets: totalCount,
+        totalBetAmount,
+        winRate,
+      },
+      details: winLossData,
+      pagination: this.buildPaginationMetadata(page, pageSize, totalCount),
+    };
   }
 
   /**
    * A-3: Agent Commission Report
    * Shows commission earnings for an agent
+   * FIX C-5: Added pagination to prevent memory exhaustion
    */
   async getAgentCommission(agentId: number, query: ReportQueryDto) {
     const where: Record<string, unknown> = { agentId };
@@ -168,6 +219,15 @@ export class ReportsService {
       }
     }
 
+    // FIX C-5: Add pagination
+    const page = query.page || 1;
+    const pageSize = Math.min(query.pageSize || 100, 1000);
+    const skip = (page - 1) * pageSize;
+
+    // Get total count for pagination metadata
+    const totalCount = await this.prisma.commission.count({ where });
+
+    // Get paginated commissions
     const commissions = await this.prisma.commission.findMany({
       where,
       include: {
@@ -186,84 +246,74 @@ export class ReportsService {
           },
         },
       },
+      skip,
+      take: pageSize,
       orderBy: { createdAt: 'desc' },
     });
 
-    const byLevel = commissions.reduce(
-      (acc, c) => {
-        const level = c.level;
-        if (!acc[level]) {
-          acc[level] = { count: 0, total: 0, details: [] };
-        }
-        acc[level].count++;
-        acc[level].total += Number(c.commissionAmt);
-        acc[level].details.push({
-          betReceiptNumber: c.bet.receiptNumber,
-          sourceAgent: c.sourceAgent.username,
-          commissionRate: Number(c.commissionRate),
-          betAmount: Number(c.bet.amount),
-          profitLoss: Number(c.profitLoss),
-          commissionAmount: Number(c.commissionAmt),
-          createdAt: c.createdAt,
-        });
+    // Map paginated commissions to detailed records
+    const commissionDetails = commissions.map((c) => ({
+      betReceiptNumber: c.bet.receiptNumber,
+      sourceAgent: c.sourceAgent.username,
+      level: c.level,
+      commissionRate: Number(c.commissionRate),
+      betAmount: Number(c.bet.amount),
+      profitLoss: Number(c.profitLoss),
+      commissionAmount: Number(c.commissionAmt),
+      createdAt: c.createdAt,
+    }));
+
+    // Calculate summary stats across ALL records (not just current page)
+    const [levelCounts, commissionStats] = await Promise.all([
+      this.prisma.commission.groupBy({
+        by: ['level'],
+        where,
+        _count: true,
+        _sum: { commissionAmt: true },
+      }),
+      this.prisma.commission.aggregate({
+        where,
+        _sum: { commissionAmt: true },
+        _avg: { commissionAmt: true },
+      }),
+    ]);
+
+    const byLevel = levelCounts.reduce(
+      (acc, level) => {
+        acc[level.level] = {
+          count: level._count,
+          total: Number(level._sum.commissionAmt || 0),
+        };
         return acc;
       },
-      {} as Record<
-        number,
-        {
-          count: number;
-          total: number;
-          details: Array<{
-            betReceiptNumber: string;
-            sourceAgent: string;
-            commissionRate: number;
-            betAmount: number;
-            profitLoss: number;
-            commissionAmount: number;
-            createdAt: Date;
-          }>;
-        }
-      >,
+      {} as Record<number, { count: number; total: number }>,
     );
 
-    const summary = {
-      totalCommissions: commissions.length,
-      totalAmount: commissions.reduce(
-        (sum, c) => sum + Number(c.commissionAmt),
-        0,
-      ),
-      averageCommission:
-        commissions.length > 0
-          ? commissions.reduce((sum, c) => sum + Number(c.commissionAmt), 0) /
-            commissions.length
-          : 0,
-      byLevel,
+    return {
+      summary: {
+        totalCommissions: totalCount,
+        totalAmount: Number(commissionStats._sum.commissionAmt || 0),
+        averageCommission: Number(commissionStats._avg.commissionAmt || 0),
+        byLevel,
+      },
+      details: commissionDetails,
+      pagination: this.buildPaginationMetadata(page, pageSize, totalCount),
     };
-
-    return summary;
   }
 
   /**
    * B-1: Moderator Hierarchy Report
    * Shows complete downline structure with statistics
+   * FIX C-3: Optimized to avoid N+1 query problem with batch loading
    */
   async getModeratorHierarchy(moderatorId: number, query: ReportQueryDto) {
     const moderator = await this.prisma.user.findUnique({
       where: { id: moderatorId },
-      include: {
-        downlines: {
-          select: {
-            id: true,
-            username: true,
-            fullName: true,
-            role: true,
-            active: true,
-            weeklyLimit: true,
-            currentLimit: true,
-            commissionRate: true,
-            createdAt: true,
-          },
-        },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        role: true,
       },
     });
 
@@ -271,35 +321,84 @@ export class ReportsService {
       throw new Error('Moderator not found');
     }
 
-    // Recursively build hierarchy tree with stats
-    const buildTree = async (userId: number): Promise<unknown> => {
-      const user = await this.prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          downlines: {
-            select: {
-              id: true,
-              username: true,
-              fullName: true,
-              role: true,
-              active: true,
-              weeklyLimit: true,
-              currentLimit: true,
-              commissionRate: true,
-              createdAt: true,
-            },
-          },
-        },
-      });
+    // FIX C-3: Batch load entire subtree in 3 queries instead of N+1
+    // Step 1: Get all downline IDs
+    const allDownlineIds = await this.getDownlineIds(moderatorId);
+    allDownlineIds.push(moderatorId); // Include moderator themselves
 
+    // Step 2: Batch load all users in the hierarchy (1 query)
+    const allUsers = await this.prisma.user.findMany({
+      where: { id: { in: allDownlineIds } },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        role: true,
+        active: true,
+        weeklyLimit: true,
+        currentLimit: true,
+        commissionRate: true,
+        uplineId: true,
+        createdAt: true,
+      },
+    });
+
+    // Step 3: Batch load all stats (bets + commissions) in 2 queries
+    const dateFilter = this.buildDateFilter(query);
+
+    const [allBets, allCommissions] = await Promise.all([
+      this.prisma.bet.findMany({
+        where: {
+          agentId: { in: allDownlineIds },
+          ...dateFilter,
+        },
+        select: { agentId: true, amount: true, status: true },
+      }),
+      this.prisma.commission.findMany({
+        where: {
+          agentId: { in: allDownlineIds },
+          ...dateFilter,
+        },
+        select: { agentId: true, commissionAmt: true },
+      }),
+    ]);
+
+    // Step 4: Build lookup maps for O(1) access
+    const userMap = new Map(allUsers.map((u) => [u.id, u]));
+
+    // Build stats map
+    const statsMap = new Map<
+      number,
+      {
+        totalBets: number;
+        totalBetAmount: number;
+        totalCommissions: number;
+        activeBets: number;
+      }
+    >();
+
+    allDownlineIds.forEach((id) => {
+      const userBets = allBets.filter((b) => b.agentId === id);
+      const userCommissions = allCommissions.filter((c) => c.agentId === id);
+
+      statsMap.set(id, {
+        totalBets: userBets.length,
+        totalBetAmount: userBets.reduce((sum, b) => sum + Number(b.amount), 0),
+        totalCommissions: userCommissions.reduce(
+          (sum, c) => sum + Number(c.commissionAmt),
+          0,
+        ),
+        activeBets: userBets.filter((b) => b.status === 'PENDING').length,
+      });
+    });
+
+    // Step 5: Build tree structure in memory (NO DB calls)
+    const buildTree = (userId: number): unknown => {
+      const user = userMap.get(userId);
       if (!user) return null;
 
-      // Get stats for this user
-      const stats = await this.getUserStats(userId, query);
-
-      const downlines = await Promise.all(
-        user.downlines.map(async (d) => await buildTree(d.id)),
-      );
+      // Find all children of this user
+      const children = allUsers.filter((u) => u.uplineId === userId);
 
       return {
         id: user.id,
@@ -311,12 +410,17 @@ export class ReportsService {
         currentLimit: Number(user.currentLimit),
         commissionRate: Number(user.commissionRate),
         createdAt: user.createdAt,
-        stats,
-        downlines,
+        stats:
+          statsMap.get(userId) ||
+          {
+            totalBets: 0,
+            totalBetAmount: 0,
+            totalCommissions: 0,
+            activeBets: 0,
+          },
+        downlines: children.map((c) => buildTree(c.id)).filter((c) => c !== null),
       };
     };
-
-    const hierarchyTree = await buildTree(moderatorId);
 
     return {
       moderator: {
@@ -325,7 +429,7 @@ export class ReportsService {
         fullName: moderator.fullName,
         role: moderator.role,
       },
-      hierarchy: hierarchyTree,
+      hierarchy: buildTree(moderatorId),
     };
   }
 
@@ -501,25 +605,32 @@ export class ReportsService {
       _count: true,
     });
 
-    // Bet statistics
-    const totalBets = await this.prisma.bet.count({ where });
-    const betsByStatus = await this.prisma.bet.groupBy({
-      by: ['status'],
+    // FIX C-5: Bet statistics - use aggregation instead of loading all records
+    const [totalBets, betsByStatus, betAmountStats] = await Promise.all([
+      this.prisma.bet.count({ where }),
+      this.prisma.bet.groupBy({
+        by: ['status'],
+        where,
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.bet.aggregate({
+        where,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    // Total bet amount from aggregation
+    const totalBetAmount = Number(betAmountStats._sum.amount || 0);
+
+    // Win amount calculation - still need to load results field
+    // NOTE: Consider adding a 'winAmount' column to Bet table for better performance
+    const betsWithResults = await this.prisma.bet.findMany({
       where,
-      _count: true,
-      _sum: { amount: true },
+      select: { results: true },
     });
 
-    const bets = await this.prisma.bet.findMany({
-      where,
-      select: { amount: true, results: true },
-    });
-
-    const totalBetAmount = bets.reduce(
-      (sum, b) => sum + Number(b.amount),
-      0,
-    );
-    const totalWinAmount = bets.reduce((sum, bet) => {
+    const totalWinAmount = betsWithResults.reduce((sum, bet) => {
       const results = SafeJsonParser.parseArray<{ winAmount: number }>(bet.results);
       return (
         sum +
@@ -530,42 +641,29 @@ export class ReportsService {
       );
     }, 0);
 
-    // Commission statistics
-    const totalCommissions = await this.prisma.commission.count({
-      where: {
-        ...(query.startDate || query.endDate
-          ? {
-              createdAt: {
-                ...(query.startDate
-                  ? { gte: new Date(query.startDate) }
-                  : {}),
-                ...(query.endDate ? { lte: new Date(query.endDate) } : {}),
-              },
-            }
-          : {}),
-      },
-    });
+    // FIX C-5: Commission statistics - use aggregation instead of loading all records
+    const commissionWhere = {
+      ...(query.startDate || query.endDate
+        ? {
+            createdAt: {
+              ...(query.startDate
+                ? { gte: new Date(query.startDate) }
+                : {}),
+              ...(query.endDate ? { lte: new Date(query.endDate) } : {}),
+            },
+          }
+        : {}),
+    };
 
-    const commissions = await this.prisma.commission.findMany({
-      where: {
-        ...(query.startDate || query.endDate
-          ? {
-              createdAt: {
-                ...(query.startDate
-                  ? { gte: new Date(query.startDate) }
-                  : {}),
-                ...(query.endDate ? { lte: new Date(query.endDate) } : {}),
-              },
-            }
-          : {}),
-      },
-      select: { commissionAmt: true },
-    });
+    const [totalCommissions, commissionStats] = await Promise.all([
+      this.prisma.commission.count({ where: commissionWhere }),
+      this.prisma.commission.aggregate({
+        where: commissionWhere,
+        _sum: { commissionAmt: true },
+      }),
+    ]);
 
-    const totalCommissionAmount = commissions.reduce(
-      (sum, c) => sum + Number(c.commissionAmt),
-      0,
-    );
+    const totalCommissionAmount = Number(commissionStats._sum.commissionAmt || 0);
 
     // Provider statistics
     const providers = await this.prisma.serviceProvider.findMany({
@@ -755,5 +853,45 @@ export class ReportsService {
       },
       {} as Record<string, { count: number; total: number }>,
     );
+  }
+
+  /**
+   * Helper: Build pagination metadata
+   * FIX C-5: Centralized pagination logic
+   */
+  private buildPaginationMetadata(
+    page: number,
+    pageSize: number,
+    totalRecords: number,
+  ): PaginationMetadata {
+    const totalPages = Math.ceil(totalRecords / pageSize);
+
+    return {
+      page,
+      pageSize,
+      totalPages,
+      totalRecords,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
+    };
+  }
+
+  /**
+   * Helper: Build date filter for queries
+   * Reduces code duplication across report methods
+   */
+  private buildDateFilter(query: ReportQueryDto): {
+    createdAt?: { gte?: Date; lte?: Date };
+  } {
+    if (!query.startDate && !query.endDate) {
+      return {};
+    }
+
+    return {
+      createdAt: {
+        ...(query.startDate ? { gte: new Date(query.startDate) } : {}),
+        ...(query.endDate ? { lte: new Date(query.endDate) } : {}),
+      },
+    };
   }
 }

@@ -76,9 +76,8 @@ export class BetsService {
 
     // Use transaction for atomic operations
     return await this.prisma.$transaction(async (tx) => {
-      // 1. Check and deduct weekly limit
-      await this.limitsService.checkBalance(userId, totalAmount);
-      await this.limitsService.deductAmount(userId, totalAmount);
+      // 1. FIX H-1: Atomic check and deduct weekly limit to prevent race conditions
+      await this.limitsService.checkAndDeduct(userId, totalAmount);
 
       // 2. Generate receipt number
       const receiptNumber = this.generateReceiptNumber(userId);

@@ -1,4 +1,4 @@
-import { IsOptional, IsDateString, IsEnum, IsNumber, Min } from 'class-validator';
+import { IsOptional, IsDateString, IsEnum, IsNumber, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -36,6 +36,33 @@ export class ReportQueryDto {
   @IsOptional()
   @IsEnum(ReportFormat)
   format?: ReportFormat = ReportFormat.JSON;
+
+  @ApiProperty({
+    description: 'Page number (1-indexed)',
+    example: 1,
+    default: 1,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiProperty({
+    description: 'Number of records per page',
+    example: 100,
+    default: 100,
+    minimum: 1,
+    maximum: 1000,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(1000)
+  pageSize?: number = 100;
 }
 
 export class HierarchyReportQueryDto extends ReportQueryDto {
@@ -48,4 +75,13 @@ export class HierarchyReportQueryDto extends ReportQueryDto {
   @IsNumber()
   @Min(1)
   userId?: number;
+}
+
+export interface PaginationMetadata {
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecords: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
