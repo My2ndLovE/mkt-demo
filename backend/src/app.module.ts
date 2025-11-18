@@ -14,6 +14,7 @@ import { CommissionsModule } from './modules/commissions/commissions.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { SyncModule } from './modules/sync/sync.module';
+import { HealthModule } from './modules/health/health.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -57,6 +58,7 @@ import configuration from './config/configuration';
     SchedulerModule,
     ReportsModule,
     SyncModule,
+    HealthModule, // FIX M-6: Health check endpoints
   ],
 })
 export class AppModule {}
