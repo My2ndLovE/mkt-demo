@@ -2,12 +2,15 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { CacheModule } from '@nestjs/cache-manager';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { RolesGuard } from './modules/auth/guards/roles.guard';
 
 // Import feature modules (to be created)
-// import { AuthModule } from './modules/auth/auth.module';
 // import { UsersModule } from './modules/users/users.module';
 // import { ProvidersModule } from './modules/providers/providers.module';
 // import { BetsModule } from './modules/bets/bets.module';
@@ -43,8 +46,10 @@ import { PrismaModule } from './prisma/prisma.module';
     // Database
     PrismaModule,
 
+    // Authentication & Authorization
+    AuthModule,
+
     // Feature modules (uncomment as they are implemented)
-    // AuthModule,
     // UsersModule,
     // ProvidersModule,
     // BetsModule,
@@ -55,6 +60,17 @@ import { PrismaModule } from './prisma/prisma.module';
     // AuditModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Global guards (applied to all routes except those marked @Public())
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
+    },
+  ],
 })
 export class AppModule {}
