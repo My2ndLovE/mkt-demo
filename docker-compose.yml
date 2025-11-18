@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # SQL Server database
+  database:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: lottery-db
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: YourStrong!Passw0rd
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqldata:/var/opt/mssql
+    networks:
+      - lottery-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong!Passw0rd -Q 'SELECT 1'"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: lottery-backend
+    environment:
+      DATABASE_URL: "sqlserver://database:1433;database=lottery_dev;user=sa;password=YourStrong!Passw0rd;encrypt=true;trustServerCertificate=true"
+      JWT_SECRET: "your-super-secret-jwt-key-change-this-in-production"
+      JWT_ACCESS_EXPIRY: "15m"
+      JWT_REFRESH_EXPIRY: "7d"
+      ENCRYPTION_KEY: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      CORS_ORIGINS: "http://localhost:5173,http://localhost:4280"
+      RATE_LIMIT_TTL: "60"
+      RATE_LIMIT_MAX: "100"
+      PORT: "3000"
+      NODE_ENV: "production"
+    ports:
+      - "3000:3000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - lottery-network
+    restart: unless-stopped
+    command: sh -c "pnpm prisma:deploy && node dist/main.js"
+
+  # Frontend (development)
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+    container_name: lottery-frontend
+    environment:
+      VITE_API_URL: "http://localhost:3000/api/v1"
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - lottery-network
+    restart: unless-stopped
+    volumes:
+      - ./apps/frontend:/app/apps/frontend
+      - /app/apps/frontend/node_modules
+
+volumes:
+  sqldata:
+    driver: local
+
+networks:
+  lottery-network:
+    driver: bridge
