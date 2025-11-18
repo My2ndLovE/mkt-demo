@@ -28,25 +28,41 @@ export class BetsService {
       this.iboxValidator.validate(dto.numbers);
     }
 
-    // Validate providers exist and are active
+    // FIX C-1: Batch load all providers to avoid N+1 query problem
+    const providers = await this.prisma.serviceProvider.findMany({
+      where: { code: { in: dto.providers } },
+    });
+
+    // Create lookup map for O(1) access
+    const providerMap = new Map(providers.map((p) => [p.code, p]));
+
+    // Validate all providers
     for (const providerCode of dto.providers) {
-      const provider = await this.providersService.findByCode(providerCode);
+      const provider = providerMap.get(providerCode);
+
+      if (!provider) {
+        throw new BadRequestException(
+          `Provider ${providerCode} not found. Available providers: ${providers.map((p) => p.code).join(', ')}`,
+        );
+      }
 
       if (!provider.active) {
-        throw new BadRequestException(`Provider ${providerCode} is not active`);
+        throw new BadRequestException(
+          `Provider ${providerCode} is currently inactive. Please select an active provider.`,
+        );
       }
 
       // Validate game type is supported by provider
       if (!provider.availableGames.includes(dto.gameType)) {
         throw new BadRequestException(
-          `Provider ${providerCode} does not support ${dto.gameType}`
+          `Provider ${providerCode} does not support ${dto.gameType}. Supported games: ${provider.availableGames.join(', ')}`,
         );
       }
 
       // Validate bet type is supported
       if (!provider.betTypes.includes(dto.betType)) {
         throw new BadRequestException(
-          `Provider ${providerCode} does not support ${dto.betType}`
+          `Provider ${providerCode} does not support ${dto.betType}. Supported types: ${provider.betTypes.join(', ')}`,
         );
       }
 

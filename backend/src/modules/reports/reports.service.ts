@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReportQueryDto } from './dto/report-query.dto';
+import { SafeJsonParser } from '../../common/utils/safe-json-parser.util';
 import * as ExcelJS from 'exceljs';
 
 @Injectable()
@@ -60,8 +61,8 @@ export class ReportsService {
       bets: bets.map((b) => ({
         ...b,
         amount: Number(b.amount),
-        providers: JSON.parse(b.providers),
-        results: b.results ? JSON.parse(b.results) : null,
+        providers: SafeJsonParser.parseArray<string>(b.providers),
+        results: SafeJsonParser.parseArray(b.results),
       })),
     };
 
@@ -108,7 +109,7 @@ export class ReportsService {
     });
 
     const winLossData = bets.map((bet) => {
-      const results = bet.results ? JSON.parse(bet.results) : [];
+      const results = SafeJsonParser.parseArray<{ winAmount: number }>(bet.results);
       const totalWin = results.reduce(
         (sum: number, r: { winAmount: number }) => sum + r.winAmount,
         0,
@@ -384,7 +385,7 @@ export class ReportsService {
 
     // Calculate total win amounts
     const totalWin = bets.reduce((sum, bet) => {
-      const results = bet.results ? JSON.parse(bet.results) : [];
+      const results = SafeJsonParser.parseArray<{ winAmount: number }>(bet.results);
       return (
         sum +
         results.reduce(
@@ -519,7 +520,7 @@ export class ReportsService {
       0,
     );
     const totalWinAmount = bets.reduce((sum, bet) => {
-      const results = bet.results ? JSON.parse(bet.results) : [];
+      const results = SafeJsonParser.parseArray<{ winAmount: number }>(bet.results);
       return (
         sum +
         results.reduce(

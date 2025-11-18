@@ -5,6 +5,8 @@ import {
   UseGuards,
   Res,
   StreamableFile,
+  ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -187,6 +189,11 @@ export class ReportsController {
     description: 'Report format (json, excel)',
   })
   @ApiResponse({ status: 200, description: 'Report generated' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Moderators can only view own hierarchy',
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
   async getModeratorHierarchy(
     @CurrentUser() user: CurrentUserData,
     @Query() query: HierarchyReportQueryDto,
@@ -194,9 +201,31 @@ export class ReportsController {
   ) {
     const userId = query.userId || user.id;
 
-    // Ensure user can only view their own hierarchy (unless admin)
-    if (user.role !== 'ADMIN' && userId !== user.id) {
-      throw new Error('Forbidden: Can only view own hierarchy');
+    // FIX C-4: Strict authorization check with proper exception
+    if (user.role !== 'ADMIN') {
+      // Moderators can ONLY view their own hierarchy
+      if (userId !== user.id) {
+        throw new ForbiddenException(
+          'Moderators can only view their own hierarchy. Admins can view any hierarchy.',
+        );
+      }
+    } else {
+      // Admins can view any hierarchy, but validate user exists
+      // This prevents exposing internal error messages
+      try {
+        await this.reportsService.getModeratorHierarchy(userId, {
+          ...query,
+          startDate: undefined,
+          endDate: undefined,
+        });
+      } catch (error) {
+        if (error.message?.includes('not found')) {
+          throw new NotFoundException(
+            `User ${userId} not found or is not a moderator.`,
+          );
+        }
+        throw error;
+      }
     }
 
     const report = await this.reportsService.getModeratorHierarchy(
