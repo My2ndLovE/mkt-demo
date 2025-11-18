@@ -8,6 +8,8 @@ import { ProvidersModule } from './modules/providers/providers.module';
 import { BetsModule } from './modules/bets/bets.module';
 import { LimitsModule } from './modules/limits/limits.module';
 import { UsersModule } from './modules/users/users.module';
+import { ResultsModule } from './modules/results/results.module';
+import { CommissionsModule } from './modules/commissions/commissions.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -43,8 +45,8 @@ import configuration from './config/configuration';
     BetsModule,
     LimitsModule,
     UsersModule,
-    // ResultsModule,
-    // CommissionsModule,
+    ResultsModule,
+    CommissionsModule,
     // ReportsModule,
   ],
 })
