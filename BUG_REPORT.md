@@ -4,6 +4,7 @@
 **Auditor**: Code Review Agent
 **Total Issues Found**: 24
 **Critical**: 5 | **High**: 5 | **Medium**: 8 | **Low**: 6
+**Status Update**: 2025-01-18 - Fixed 9 issues (5 Critical, 1 High, 3 Medium)
 
 ---
 
@@ -158,35 +159,39 @@ if (requesterRole === 'MODERATOR') {
 
 ---
 
-### ⚠️ Issue #7: Logout Doesn't Verify Token Ownership
+### ✅ Issue #7: Logout Doesn't Verify Token Ownership [FIXED]
 **File**: `apps/backend/src/modules/auth/auth.service.ts:logout()`
 **Severity**: HIGH
-**Status**: ⚠️ NOT FIXED
+**Status**: ✅ FIXED
 
-**Problem**: Anyone with a refresh token can revoke it, even if it doesn't belong to them.
+**Problem**: Anyone with a refresh token could revoke it, even if it didn't belong to them.
 
-**Code**:
-```typescript
-async logout(refreshToken: string): Promise<void> {
-  await this.prisma.refreshToken.updateMany({
-    where: { token: refreshToken },  // ❌ No userId check!
-    data: { revokedAt: new Date() },
-  });
-}
-```
+**Fix Applied**:
+- Removed `@Public()` decorator from logout endpoint (now requires authentication)
+- Added `userId` parameter to logout method
+- Verifies refresh token belongs to requesting user before revocation
+- Returns UnauthorizedException if token doesn't belong to user
 
-**Recommended Fix**:
+**Code After**:
 ```typescript
 async logout(userId: number, refreshToken: string): Promise<void> {
-  await this.prisma.refreshToken.updateMany({
+  const result = await this.prisma.refreshToken.updateMany({
     where: {
       token: refreshToken,
-      userId: userId  // ✅ Verify ownership
+      userId: userId,  // ✅ Verify ownership
     },
     data: { revokedAt: new Date() },
   });
+
+  if (result.count === 0) {
+    throw new UnauthorizedException('Invalid refresh token');
+  }
 }
 ```
+
+**Files Modified**:
+- `apps/backend/src/modules/auth/auth.service.ts`
+- `apps/backend/src/modules/auth/auth.controller.ts`
 
 ---
 
@@ -225,49 +230,71 @@ async logout(userId: number, refreshToken: string): Promise<void> {
 
 ## 🟡 MEDIUM SEVERITY ISSUES
 
-### ⚠️ Issue #11: Missing Bet Number Format Validation
+### ✅ Issue #11: Missing Bet Number Format Validation [FIXED]
 **File**: `apps/backend/src/modules/bets/dto/create-bet.dto.ts`
 **Severity**: MEDIUM
-**Status**: ⚠️ NOT FIXED
+**Status**: ✅ FIXED
 
-**Current**:
+**Problem**: Bet number field accepted any string value, allowing invalid formats.
+
+**Fix Applied**:
+- Added `@Matches(/^\d{4}$/)` decorator to enforce exactly 4 digits
+- Added clear error message for validation failure
+
+**Code After**:
 ```typescript
 @IsString()
-betNumber: string;  // Accepts any string
-```
-
-**Recommended**:
-```typescript
+@IsNotEmpty()
 @Matches(/^\d{4}$/, { message: 'Bet number must be exactly 4 digits' })
 betNumber: string;
 ```
 
 ---
 
-### ⚠️ Issue #12: Weak Password Policy
+### ✅ Issue #12: Weak Password Policy [FIXED]
 **File**: `apps/backend/src/modules/users/dto/create-user.dto.ts`
 **Severity**: MEDIUM
-**Status**: ⚠️ NOT FIXED
+**Status**: ✅ FIXED
 
-**Current**: Only requires 8 characters, no complexity.
+**Problem**: Password only required 8 characters with no complexity requirements.
 
-**Recommended**:
+**Fix Applied**:
+- Added complexity requirements via `@Matches` decorator
+- Password must contain: uppercase letter, lowercase letter, number, special character
+- Clear error message explains requirements
+
+**Code After**:
 ```typescript
+@MinLength(8)
 @Matches(
   /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-  { message: 'Password must contain uppercase, lowercase, number, and special character' }
+  {
+    message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&)',
+  }
 )
 password: string;
 ```
 
 ---
 
-### ⚠️ Issue #13: Missing Email Format Validation
+### ✅ Issue #13: Missing Email Format Validation [FIXED]
 **File**: `apps/backend/src/modules/users/dto/create-user.dto.ts`
 **Severity**: MEDIUM
-**Status**: ⚠️ NOT FIXED
+**Status**: ✅ FIXED
 
-**Recommended**: Add `@IsEmail()` decorator.
+**Problem**: Email field had no format validation, accepting any string.
+
+**Fix Applied**:
+- Added `@IsEmail()` decorator to validate email format
+- Added clear error message for invalid emails
+
+**Code After**:
+```typescript
+@IsOptional()
+@IsEmail({}, { message: 'Invalid email format' })
+@MaxLength(100)
+email?: string;
+```
 
 ---
 
@@ -332,17 +359,26 @@ password: string;
 
 ## Summary of Fixes Applied
 
-### ✅ Fixed (5 Critical Issues):
+### ✅ Fixed (9 Issues):
+**Critical (5):**
 1. Row-Level Security authentication bypass
 2. Race condition in weekly limit check
 3. Negative weekly usage vulnerability
 4. Privilege escalation via role update
 5. Authorization bypass in user updates
 
-### ⚠️ Remaining (19 Issues):
+**High (1):**
+6. Logout token ownership verification
+
+**Medium (3):**
+7. Bet number format validation
+8. Weak password policy
+9. Email format validation
+
+### ⚠️ Remaining (15 Issues):
 - 4 High Severity
-- 8 Medium Severity
-- 7 Low Severity
+- 5 Medium Severity
+- 6 Low Severity
 
 ---
 
