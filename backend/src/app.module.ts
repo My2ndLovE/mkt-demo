@@ -7,6 +7,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { BetsModule } from './modules/bets/bets.module';
 import { LimitsModule } from './modules/limits/limits.module';
+import { UsersModule } from './modules/users/users.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -41,7 +42,7 @@ import configuration from './config/configuration';
     ProvidersModule,
     BetsModule,
     LimitsModule,
-    // UsersModule,
+    UsersModule,
     // ResultsModule,
     // CommissionsModule,
     // ReportsModule,
