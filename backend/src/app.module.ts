@@ -12,6 +12,7 @@ import { UsersModule } from './modules/users/users.module';
 import { ResultsModule } from './modules/results/results.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
 import { SchedulerModule } from './modules/scheduler/scheduler.module';
+import { ReportsModule } from './modules/reports/reports.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -53,7 +54,7 @@ import configuration from './config/configuration';
     ResultsModule,
     CommissionsModule,
     SchedulerModule,
-    // ReportsModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}
