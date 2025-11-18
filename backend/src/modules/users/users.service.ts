@@ -53,8 +53,17 @@ export class UsersService {
         where: { id: dto.uplineId },
       });
 
-      if (!upline || upline.moderatorId !== moderatorId) {
-        throw new BadRequestException('Invalid upline ID');
+      // FIX H-4: Improved error message with specific context
+      if (!upline) {
+        throw new BadRequestException(
+          `Upline user with ID ${dto.uplineId} not found. Please verify the upline exists.`,
+        );
+      }
+
+      if (upline.moderatorId !== moderatorId) {
+        throw new BadRequestException(
+          `Upline user ${dto.uplineId} does not belong to your organization. You can only assign uplines within your own hierarchy.`,
+        );
       }
     }
 

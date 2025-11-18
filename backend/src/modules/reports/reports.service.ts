@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReportQueryDto, PaginationMetadata } from './dto/report-query.dto';
 import { SafeJsonParser } from '../../common/utils/safe-json-parser.util';
@@ -317,8 +317,11 @@ export class ReportsService {
       },
     });
 
+    // FIX H-4: Improved error message with context
     if (!moderator) {
-      throw new Error('Moderator not found');
+      throw new NotFoundException(
+        `Moderator with ID ${moderatorId} not found. Please verify the user exists and has MODERATOR or ADMIN role.`,
+      );
     }
 
     // FIX C-3: Batch load entire subtree in 3 queries instead of N+1

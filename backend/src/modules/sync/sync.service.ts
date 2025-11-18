@@ -1,4 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -218,8 +222,11 @@ export class SyncService {
     const apiUrl = this.config.get<string>('MAGAYO_API_URL');
     const apiKey = this.config.get<string>('MAGAYO_API_KEY');
 
+    // FIX H-4: Improved error message with configuration details
     if (!apiUrl || !apiKey) {
-      throw new Error('Magayo API configuration missing');
+      throw new InternalServerErrorException(
+        'Magayo API configuration is incomplete. Please set MAGAYO_API_URL and MAGAYO_API_KEY environment variables.',
+      );
     }
 
     try {
@@ -235,8 +242,11 @@ export class SyncService {
         }),
       );
 
+      // FIX H-4: Improved error message with request details
       if (!response.data) {
-        throw new Error('Empty response from Magayo API');
+        throw new InternalServerErrorException(
+          `Empty response from Magayo API for provider ${providerCode} on ${drawDate}. The API returned no data.`,
+        );
       }
 
       return response.data;

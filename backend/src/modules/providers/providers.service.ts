@@ -139,11 +139,16 @@ export class ProvidersService {
     };
   }
 
+  // FIX H-4: Improved error message with JSON parsing details
   private validateJSON(jsonString: string, fieldName: string) {
     try {
       JSON.parse(jsonString);
     } catch (error) {
-      throw new BadRequestException(`Invalid JSON in field: ${fieldName}`);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown JSON error';
+      throw new BadRequestException(
+        `Invalid JSON in field "${fieldName}": ${errorMessage}. Please ensure the value is valid JSON format.`,
+      );
     }
   }
 
