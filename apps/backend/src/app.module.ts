@@ -20,7 +20,7 @@ import { UsersModule } from './modules/users/users.module';
 import { ProvidersModule } from './modules/providers/providers.module';
 import { ResultsModule } from './modules/results/results.module';
 import { CommissionsModule } from './modules/commissions/commissions.module';
-// import { ReportsModule } from './modules/reports/reports.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -60,7 +60,7 @@ import { CommissionsModule } from './modules/commissions/commissions.module';
     ProvidersModule,
     ResultsModule,
     CommissionsModule,
-    // ReportsModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [
