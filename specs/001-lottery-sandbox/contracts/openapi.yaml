@@ -1,0 +1,2279 @@
+openapi: 3.0.3
+info:
+  title: Multi-Level Agent Lottery Sandbox API
+  description: |
+    RESTful API for Multi-Level Agent Lottery Sandbox System supporting Malaysian and Singapore lottery providers.
+
+    **Key Features:**
+    - Unlimited agent hierarchy with configurable commission
+    - Weekly limit-based betting system (Monday reset)
+    - Multiple service providers (Magnum, Sports Toto, Damacai, Singapore Pools)
+    - Game types: 3D, 4D, 5D, 6D
+    - Bet types: BIG, SMALL, iBox (MVP)
+    - Third-party API integration with manual fallback
+    - Role-based access control (ADMIN, MODERATOR, AGENT)
+
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@lottery-sandbox.com
+
+servers:
+  - url: https://api.lottery-sandbox.com/api/v1
+    description: Production server
+  - url: https://staging-api.lottery-sandbox.com/api/v1
+    description: Staging server
+  - url: http://localhost:3000/api/v1
+    description: Local development server
+
+tags:
+  - name: Authentication
+    description: User authentication and token management
+  - name: Service Providers
+    description: Lottery service provider configuration (ADMIN only)
+  - name: Agents
+    description: Agent management and hierarchy operations
+  - name: Bets
+    description: Bet placement, cancellation, and querying
+  - name: Weekly Limits
+    description: Weekly quota management and allocation
+  - name: Draw Results
+    description: Lottery draw results and synchronization
+  - name: Commissions
+    description: Commission calculation and distribution
+  - name: Reports
+    description: Business intelligence and analytics reports
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ============================================================================
+  # AUTHENTICATION
+  # ============================================================================
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      description: Authenticate user and receive access token (15min) and refresh token (7 days)
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginDto'
+            example:
+              username: "agent001"
+              password: "SecurePass123!"
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponseDto'
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                expiresIn: 900
+                user:
+                  id: 5
+                  username: "agent001"
+                  role: "AGENT"
+                  uplineId: 2
+                  moderatorId: 1
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Exchange refresh token for new access token
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenDto'
+            example:
+              refreshToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshTokenResponseDto'
+              example:
+                accessToken: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                expiresIn: 900
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidate refresh token
+      operationId: logout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutDto'
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logout successful"
+
+  # ============================================================================
+  # SERVICE PROVIDERS
+  # ============================================================================
+  /providers:
+    get:
+      tags:
+        - Service Providers
+      summary: List all service providers
+      description: Get all configured lottery service providers (visible to all users)
+      operationId: listProviders
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: country
+          in: query
+          schema:
+            type: string
+            enum: [MY, SG]
+          description: Filter by country code
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Filter by active status
+      responses:
+        '200':
+          description: Providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceProviderDto'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+              example:
+                data:
+                  - id: "clx1a2b3c4d5e6f7g8h9"
+                    code: "M"
+                    name: "Magnum 4D"
+                    country: "MY"
+                    isActive: true
+                    availableGames: ["4D"]
+                    betTypes: ["BIG", "SMALL", "IBOX"]
+                    drawSchedule:
+                      days: [0, 3, 6]
+                      time: "19:00"
+                      timezone: "Asia/Kuala_Lumpur"
+                    createdAt: "2025-01-15T08:00:00Z"
+                    updatedAt: "2025-01-15T08:00:00Z"
+                pagination:
+                  total: 4
+                  page: 1
+                  limit: 20
+                  totalPages: 1
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    post:
+      tags:
+        - Service Providers
+      summary: Create service provider
+      description: Create new lottery service provider (ADMIN only)
+      operationId: createProvider
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateServiceProviderDto'
+            example:
+              code: "M"
+              name: "Magnum 4D"
+              country: "MY"
+              availableGames: ["4D"]
+              betTypes: ["BIG", "SMALL", "IBOX"]
+              drawSchedule:
+                days: [0, 3, 6]
+                time: "19:00"
+                timezone: "Asia/Kuala_Lumpur"
+              apiConfig:
+                provider: "magayo"
+                apiKey: "{{MAGAYO_API_KEY}}"
+                endpoint: "https://api.magayo.com/lottery/results"
+      responses:
+        '201':
+          description: Provider created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceProviderDto'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /providers/{providerId}:
+    get:
+      tags:
+        - Service Providers
+      summary: Get service provider details
+      operationId: getProvider
+      parameters:
+        - $ref: '#/components/parameters/ProviderIdParam'
+      responses:
+        '200':
+          description: Provider retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceProviderDto'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      tags:
+        - Service Providers
+      summary: Update service provider
+      description: Update service provider configuration (ADMIN only)
+      operationId: updateProvider
+      parameters:
+        - $ref: '#/components/parameters/ProviderIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateServiceProviderDto'
+      responses:
+        '200':
+          description: Provider updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ServiceProviderDto'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      tags:
+        - Service Providers
+      summary: Delete service provider
+      description: Soft delete service provider (ADMIN only)
+      operationId: deleteProvider
+      parameters:
+        - $ref: '#/components/parameters/ProviderIdParam'
+      responses:
+        '204':
+          description: Provider deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================================================
+  # AGENTS
+  # ============================================================================
+  /agents:
+    get:
+      tags:
+        - Agents
+      summary: List agents
+      description: |
+        List agents based on user role:
+        - ADMIN: All agents across all moderators
+        - MODERATOR: Only agents within their organization
+        - AGENT: Only their direct downlines
+      operationId: listAgents
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [AGENT, MODERATOR, ADMIN]
+          description: Filter by role
+        - name: uplineId
+          in: query
+          schema:
+            type: integer
+          description: Filter by upline ID
+        - name: moderatorId
+          in: query
+          schema:
+            type: integer
+          description: Filter by moderator ID (ADMIN only)
+      responses:
+        '200':
+          description: Agents retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserDto'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      tags:
+        - Agents
+      summary: Create agent
+      description: |
+        Create new agent:
+        - ADMIN: Can create MODERATOR or AGENT under any moderator
+        - MODERATOR: Can create AGENT under themselves
+        - AGENT: Can create sub-AGENT under themselves
+      operationId: createAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAgentDto'
+            example:
+              username: "agent005"
+              password: "SecurePass123!"
+              role: "AGENT"
+              uplineId: 2
+              moderatorId: 1
+              weeklyLimit: 10000.00
+              commissionRate: 30.00
+      responses:
+        '201':
+          description: Agent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /agents/{agentId}:
+    get:
+      tags:
+        - Agents
+      summary: Get agent details
+      operationId: getAgent
+      parameters:
+        - $ref: '#/components/parameters/AgentIdParam'
+      responses:
+        '200':
+          description: Agent retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      tags:
+        - Agents
+      summary: Update agent
+      description: Update agent details (upline can modify their downlines)
+      operationId: updateAgent
+      parameters:
+        - $ref: '#/components/parameters/AgentIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgentDto'
+      responses:
+        '200':
+          description: Agent updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /agents/{agentId}/hierarchy:
+    get:
+      tags:
+        - Agents
+      summary: Get agent hierarchy
+      description: Retrieve complete upline chain and downline tree for an agent
+      operationId: getAgentHierarchy
+      parameters:
+        - $ref: '#/components/parameters/AgentIdParam'
+        - name: direction
+          in: query
+          schema:
+            type: string
+            enum: [upline, downline, both]
+            default: both
+          description: Direction of hierarchy to retrieve
+        - name: maxDepth
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Maximum depth to traverse
+      responses:
+        '200':
+          description: Hierarchy retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentHierarchyDto'
+              example:
+                agent:
+                  id: 5
+                  username: "agent003"
+                  role: "AGENT"
+                  uplineId: 2
+                  level: 2
+                uplineChain:
+                  - id: 2
+                    username: "moderator01"
+                    role: "MODERATOR"
+                    level: 1
+                  - id: 1
+                    username: "admin"
+                    role: "ADMIN"
+                    level: 0
+                downlineTree:
+                  - id: 8
+                    username: "agent004"
+                    role: "AGENT"
+                    uplineId: 5
+                    level: 3
+                    downlines:
+                      - id: 12
+                        username: "agent005"
+                        role: "AGENT"
+                        uplineId: 8
+                        level: 4
+                        downlines: []
+
+  /agents/{agentId}/reset-password:
+    post:
+      tags:
+        - Agents
+      summary: Reset agent password
+      description: Upline can reset downline's password
+      operationId: resetAgentPassword
+      parameters:
+        - $ref: '#/components/parameters/AgentIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResetPasswordDto'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Password reset successful"
+
+  # ============================================================================
+  # BETS
+  # ============================================================================
+  /bets:
+    get:
+      tags:
+        - Bets
+      summary: List bets
+      description: |
+        List bets based on user role:
+        - ADMIN: All bets across all moderators
+        - MODERATOR: Bets within their organization
+        - AGENT: Their bets and downline bets
+      operationId: listBets
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: agentId
+          in: query
+          schema:
+            type: integer
+          description: Filter by agent ID
+        - name: providerId
+          in: query
+          schema:
+            type: string
+          description: Filter by provider ID
+        - name: drawId
+          in: query
+          schema:
+            type: integer
+          description: Filter by draw ID
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, WON, LOST, CANCELLED, REFUNDED]
+          description: Filter by bet status
+        - name: gameType
+          in: query
+          schema:
+            type: string
+            enum: [3D, 4D, 5D, 6D]
+          description: Filter by game type
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter bets from this date (inclusive)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter bets until this date (inclusive)
+      responses:
+        '200':
+          description: Bets retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BetDto'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      tags:
+        - Bets
+      summary: Place bet
+      description: Place new lottery bet (deducts from weekly limit)
+      operationId: placeBet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBetDto'
+            example:
+              providerId: "clx1a2b3c4d5e6f7g8h9"
+              drawId: 1001
+              gameType: "4D"
+              betType: "BIG"
+              selectedNumbers: "1234"
+              betAmount: 10.00
+      responses:
+        '201':
+          description: Bet placed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BetDto'
+              example:
+                id: 50001
+                agentId: 5
+                providerId: "clx1a2b3c4d5e6f7g8h9"
+                drawId: 1001
+                gameType: "4D"
+                betType: "BIG"
+                selectedNumbers: "1234"
+                betAmount: 10.00
+                potentialPayout: 25000.00
+                status: "PENDING"
+                receiptNumber: "BET-20250118-50001"
+                createdAt: "2025-01-18T10:30:00Z"
+        '400':
+          description: Bet validation failed (insufficient quota, duplicate bet, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                insufficientQuota:
+                  value:
+                    error: "BAD_REQUEST"
+                    message: "Insufficient weekly limit. Available: RM 500.00, Required: RM 1000.00"
+                    statusCode: 400
+                duplicateBet:
+                  value:
+                    error: "BAD_REQUEST"
+                    message: "Duplicate bet detected for this draw and number combination"
+                    statusCode: 400
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /bets/{betId}:
+    get:
+      tags:
+        - Bets
+      summary: Get bet details
+      operationId: getBet
+      parameters:
+        - $ref: '#/components/parameters/BetIdParam'
+      responses:
+        '200':
+          description: Bet retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BetDto'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      tags:
+        - Bets
+      summary: Cancel bet
+      description: Cancel PENDING bet before draw (refunds weekly limit)
+      operationId: cancelBet
+      parameters:
+        - $ref: '#/components/parameters/BetIdParam'
+      responses:
+        '200':
+          description: Bet cancelled successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BetDto'
+              example:
+                id: 50001
+                status: "CANCELLED"
+                cancelledAt: "2025-01-18T11:00:00Z"
+        '400':
+          description: Bet cannot be cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "BAD_REQUEST"
+                message: "Cannot cancel bet. Status is not PENDING or draw has already occurred."
+                statusCode: 400
+
+  /bets/receipt/{receiptNumber}:
+    get:
+      tags:
+        - Bets
+      summary: Get bet by receipt number
+      description: Retrieve bet details using receipt number for verification
+      operationId: getBetByReceipt
+      parameters:
+        - name: receiptNumber
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "BET-20250118-50001"
+      responses:
+        '200':
+          description: Bet retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BetDto'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ============================================================================
+  # WEEKLY LIMITS
+  # ============================================================================
+  /limits/balance:
+    get:
+      tags:
+        - Weekly Limits
+      summary: Get weekly limit balance
+      description: Retrieve current week's limit, used amount, and available balance
+      operationId: getWeeklyBalance
+      responses:
+        '200':
+          description: Balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyLimitBalanceDto'
+              example:
+                agentId: 5
+                weeklyLimit: 10000.00
+                weeklyUsed: 2500.00
+                weeklyAvailable: 7500.00
+                weekStartDate: "2025-01-13"
+                weekEndDate: "2025-01-19"
+                nextResetAt: "2025-01-20T00:00:00Z"
+
+  /limits/allocate:
+    post:
+      tags:
+        - Weekly Limits
+      summary: Allocate limit to downline
+      description: |
+        Transfer weekly limit from upline to downline (must have sufficient available balance).
+        This updates the downline's `weeklyLimit` and upline's `weeklyUsed`.
+      operationId: allocateLimit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AllocateLimitDto'
+            example:
+              downlineId: 8
+              amount: 5000.00
+      responses:
+        '200':
+          description: Limit allocated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Allocated RM 5000.00 to agent008"
+                  uplineBalance:
+                    $ref: '#/components/schemas/WeeklyLimitBalanceDto'
+                  downlineBalance:
+                    $ref: '#/components/schemas/WeeklyLimitBalanceDto'
+        '400':
+          description: Allocation failed (insufficient balance, invalid downline, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: "BAD_REQUEST"
+                message: "Insufficient available balance. Available: RM 3000.00, Required: RM 5000.00"
+                statusCode: 400
+
+  /limits/history:
+    get:
+      tags:
+        - Weekly Limits
+      summary: Get limit allocation history
+      description: Retrieve history of limit allocations and resets
+      operationId: getLimitHistory
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: History retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LimitResetLogDto'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  # ============================================================================
+  # DRAW RESULTS
+  # ============================================================================
+  /results:
+    get:
+      tags:
+        - Draw Results
+      summary: List draw results
+      operationId: listResults
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: providerId
+          in: query
+          schema:
+            type: string
+          description: Filter by provider ID
+        - name: gameType
+          in: query
+          schema:
+            type: string
+            enum: [3D, 4D, 5D, 6D]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Results retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DrawResultDto'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      tags:
+        - Draw Results
+      summary: Create draw result manually
+      description: Manually enter draw result (ADMIN only, used as API fallback)
+      operationId: createResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDrawResultDto'
+      responses:
+        '201':
+          description: Result created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DrawResultDto'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /results/{resultId}:
+    get:
+      tags:
+        - Draw Results
+      summary: Get draw result details
+      operationId: getResult
+      parameters:
+        - $ref: '#/components/parameters/ResultIdParam'
+      responses:
+        '200':
+          description: Result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DrawResultDto'
+
+  /results/sync:
+    post:
+      tags:
+        - Draw Results
+      summary: Sync results from third-party API
+      description: Trigger manual sync of lottery results from third-party provider (ADMIN only)
+      operationId: syncResults
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                providerId:
+                  type: string
+                  description: Provider ID to sync (optional, syncs all if omitted)
+                drawDate:
+                  type: string
+                  format: date
+                  description: Draw date to sync (optional, syncs latest if omitted)
+      responses:
+        '200':
+          description: Sync completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Synced 4 draw results"
+                  syncedResults:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DrawResultDto'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ============================================================================
+  # COMMISSIONS
+  # ============================================================================
+  /commissions:
+    get:
+      tags:
+        - Commissions
+      summary: List commissions
+      description: |
+        List commissions based on user role:
+        - ADMIN: All commissions
+        - MODERATOR: Commissions within organization
+        - AGENT: Only their commissions (both earned and distributed)
+      operationId: listCommissions
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: agentId
+          in: query
+          schema:
+            type: integer
+          description: Filter by agent ID
+        - name: betId
+          in: query
+          schema:
+            type: integer
+          description: Filter by bet ID
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Commissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CommissionDto'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /commissions/summary:
+    get:
+      tags:
+        - Commissions
+      summary: Get commission summary
+      description: Retrieve aggregated commission statistics for date range
+      operationId: getCommissionSummary
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: agentId
+          in: query
+          schema:
+            type: integer
+          description: Agent ID (defaults to authenticated user)
+      responses:
+        '200':
+          description: Summary retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CommissionSummaryDto'
+              example:
+                agentId: 5
+                period:
+                  startDate: "2025-01-01"
+                  endDate: "2025-01-31"
+                totalCommissionEarned: 15000.00
+                totalCommissionDistributed: 10500.00
+                netCommission: 4500.00
+                commissionsByLevel:
+                  - level: 1
+                    count: 25
+                    totalAmount: 7500.00
+                  - level: 2
+                    count: 15
+                    totalAmount: 3000.00
+                totalBetsProcessed: 100
+                totalBetAmount: 50000.00
+
+  # ============================================================================
+  # REPORTS
+  # ============================================================================
+  /reports/a1:
+    get:
+      tags:
+        - Reports
+      summary: Report A1 - Daily Betting Summary by Provider
+      description: Total bet amount and count grouped by date and provider
+      operationId: getReportA1
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: providerId
+          in: query
+          schema:
+            type: string
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, excel]
+            default: json
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportA1Dto'
+            text/csv:
+              schema:
+                type: string
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /reports/a2:
+    get:
+      tags:
+        - Reports
+      summary: Report A2 - Winning Bets by Draw
+      description: All winning bets for specific draw
+      operationId: getReportA2
+      parameters:
+        - name: drawId
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, excel]
+            default: json
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportA2Dto'
+
+  /reports/a3:
+    get:
+      tags:
+        - Reports
+      summary: Report A3 - Agent Performance by Period
+      description: Betting volume, win/loss ratio, commission earned per agent
+      operationId: getReportA3
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: moderatorId
+          in: query
+          schema:
+            type: integer
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, excel]
+            default: json
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportA3Dto'
+
+  /reports/b1:
+    get:
+      tags:
+        - Reports
+      summary: Report B1 - Weekly Limit Utilization by Agent
+      description: Weekly limit allocation and usage statistics
+      operationId: getReportB1
+      parameters:
+        - name: weekStartDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: moderatorId
+          in: query
+          schema:
+            type: integer
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, excel]
+            default: json
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportB1Dto'
+
+  /reports/b2:
+    get:
+      tags:
+        - Reports
+      summary: Report B2 - Commission Distribution Breakdown
+      description: Multi-level commission flow for specific bet or period
+      operationId: getReportB2
+      parameters:
+        - name: betId
+          in: query
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, excel]
+            default: json
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportB2Dto'
+
+  /reports/b3:
+    get:
+      tags:
+        - Reports
+      summary: Report B3 - Audit Log Export
+      description: Financial transaction audit trail
+      operationId: getReportB3
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: entityType
+          in: query
+          schema:
+            type: string
+            enum: [BET, COMMISSION, LIMIT_ALLOCATION, DRAW_RESULT]
+        - name: agentId
+          in: query
+          schema:
+            type: integer
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [json, csv, excel]
+            default: json
+      responses:
+        '200':
+          description: Report generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportB3Dto'
+
+# ============================================================================
+# COMPONENTS
+# ============================================================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token (expires in 15 minutes)
+
+        Example:
+        ```
+        Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        ```
+
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+      description: Page number (1-indexed)
+
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+      description: Items per page
+
+    ProviderIdParam:
+      name: providerId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Service provider ID (CUID)
+
+    AgentIdParam:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Agent user ID
+
+    BetIdParam:
+      name: betId
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Bet ID
+
+    ResultIdParam:
+      name: resultId
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Draw result ID
+
+  schemas:
+    # ========================================================================
+    # AUTHENTICATION SCHEMAS
+    # ========================================================================
+    LoginDto:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          example: "agent001"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          example: "SecurePass123!"
+
+    LoginResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (15min expiry)
+        refreshToken:
+          type: string
+          description: JWT refresh token (7 days expiry)
+        expiresIn:
+          type: integer
+          description: Access token expiry in seconds
+          example: 900
+        user:
+          $ref: '#/components/schemas/UserDto'
+
+    RefreshTokenDto:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: Valid refresh token
+
+    RefreshTokenResponseDto:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          description: New JWT access token
+        expiresIn:
+          type: integer
+          example: 900
+
+    LogoutDto:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+
+    # ========================================================================
+    # USER/AGENT SCHEMAS
+    # ========================================================================
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 5
+        username:
+          type: string
+          example: "agent003"
+        role:
+          type: string
+          enum: [ADMIN, MODERATOR, AGENT]
+          example: "AGENT"
+        uplineId:
+          type: integer
+          nullable: true
+          example: 2
+        moderatorId:
+          type: integer
+          nullable: true
+          example: 1
+        weeklyLimit:
+          type: number
+          format: decimal
+          example: 10000.00
+        weeklyUsed:
+          type: number
+          format: decimal
+          example: 2500.00
+        commissionRate:
+          type: number
+          format: decimal
+          example: 30.00
+          description: Commission percentage (0.00-100.00)
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateAgentDto:
+      type: object
+      required:
+        - username
+        - password
+        - role
+        - weeklyLimit
+        - commissionRate
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+        role:
+          type: string
+          enum: [MODERATOR, AGENT]
+        uplineId:
+          type: integer
+          description: Required for AGENT role
+        moderatorId:
+          type: integer
+          description: Required for AGENT role
+        weeklyLimit:
+          type: number
+          format: decimal
+          minimum: 0
+        commissionRate:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 100
+
+    UpdateAgentDto:
+      type: object
+      properties:
+        weeklyLimit:
+          type: number
+          format: decimal
+          minimum: 0
+        commissionRate:
+          type: number
+          format: decimal
+          minimum: 0
+          maximum: 100
+        isActive:
+          type: boolean
+
+    ResetPasswordDto:
+      type: object
+      required:
+        - newPassword
+      properties:
+        newPassword:
+          type: string
+          minLength: 8
+          maxLength: 100
+
+    AgentHierarchyDto:
+      type: object
+      properties:
+        agent:
+          type: object
+          properties:
+            id:
+              type: integer
+            username:
+              type: string
+            role:
+              type: string
+            uplineId:
+              type: integer
+              nullable: true
+            level:
+              type: integer
+        uplineChain:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              username:
+                type: string
+              role:
+                type: string
+              level:
+                type: integer
+        downlineTree:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentTreeNode'
+
+    AgentTreeNode:
+      type: object
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+        uplineId:
+          type: integer
+        level:
+          type: integer
+        downlines:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgentTreeNode'
+
+    # ========================================================================
+    # SERVICE PROVIDER SCHEMAS
+    # ========================================================================
+    ServiceProviderDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "clx1a2b3c4d5e6f7g8h9"
+        code:
+          type: string
+          example: "M"
+        name:
+          type: string
+          example: "Magnum 4D"
+        country:
+          type: string
+          enum: [MY, SG]
+          example: "MY"
+        isActive:
+          type: boolean
+          example: true
+        availableGames:
+          type: array
+          items:
+            type: string
+            enum: [3D, 4D, 5D, 6D]
+          example: ["4D"]
+        betTypes:
+          type: array
+          items:
+            type: string
+            enum: [BIG, SMALL, IBOX]
+          example: ["BIG", "SMALL", "IBOX"]
+        drawSchedule:
+          type: object
+          properties:
+            days:
+              type: array
+              items:
+                type: integer
+                minimum: 0
+                maximum: 6
+              description: Days of week (0=Sunday, 6=Saturday)
+              example: [0, 3, 6]
+            time:
+              type: string
+              pattern: '^([0-1][0-9]|2[0-3]):[0-5][0-9]$'
+              example: "19:00"
+            timezone:
+              type: string
+              example: "Asia/Kuala_Lumpur"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateServiceProviderDto:
+      type: object
+      required:
+        - code
+        - name
+        - country
+        - availableGames
+        - betTypes
+        - drawSchedule
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 10
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        country:
+          type: string
+          enum: [MY, SG]
+        availableGames:
+          type: array
+          items:
+            type: string
+            enum: [3D, 4D, 5D, 6D]
+          minItems: 1
+        betTypes:
+          type: array
+          items:
+            type: string
+            enum: [BIG, SMALL, IBOX]
+          minItems: 1
+        drawSchedule:
+          type: object
+          required:
+            - days
+            - time
+            - timezone
+          properties:
+            days:
+              type: array
+              items:
+                type: integer
+                minimum: 0
+                maximum: 6
+            time:
+              type: string
+            timezone:
+              type: string
+        apiConfig:
+          type: object
+          properties:
+            provider:
+              type: string
+            apiKey:
+              type: string
+            endpoint:
+              type: string
+
+    UpdateServiceProviderDto:
+      type: object
+      properties:
+        name:
+          type: string
+        isActive:
+          type: boolean
+        availableGames:
+          type: array
+          items:
+            type: string
+            enum: [3D, 4D, 5D, 6D]
+        betTypes:
+          type: array
+          items:
+            type: string
+            enum: [BIG, SMALL, IBOX]
+        drawSchedule:
+          type: object
+        apiConfig:
+          type: object
+
+    # ========================================================================
+    # BET SCHEMAS
+    # ========================================================================
+    BetDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 50001
+        agentId:
+          type: integer
+          example: 5
+        providerId:
+          type: string
+          example: "clx1a2b3c4d5e6f7g8h9"
+        drawId:
+          type: integer
+          example: 1001
+        gameType:
+          type: string
+          enum: [3D, 4D, 5D, 6D]
+          example: "4D"
+        betType:
+          type: string
+          enum: [BIG, SMALL, IBOX]
+          example: "BIG"
+        selectedNumbers:
+          type: string
+          example: "1234"
+        betAmount:
+          type: number
+          format: decimal
+          example: 10.00
+        potentialPayout:
+          type: number
+          format: decimal
+          example: 25000.00
+        actualPayout:
+          type: number
+          format: decimal
+          nullable: true
+          example: null
+        status:
+          type: string
+          enum: [PENDING, WON, LOST, CANCELLED, REFUNDED]
+          example: "PENDING"
+        receiptNumber:
+          type: string
+          example: "BET-20250118-50001"
+        createdAt:
+          type: string
+          format: date-time
+        cancelledAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateBetDto:
+      type: object
+      required:
+        - providerId
+        - drawId
+        - gameType
+        - betType
+        - selectedNumbers
+        - betAmount
+      properties:
+        providerId:
+          type: string
+        drawId:
+          type: integer
+        gameType:
+          type: string
+          enum: [3D, 4D, 5D, 6D]
+        betType:
+          type: string
+          enum: [BIG, SMALL, IBOX]
+        selectedNumbers:
+          type: string
+          pattern: '^\d{3,6}$'
+          description: 3-6 digit number based on game type
+        betAmount:
+          type: number
+          format: decimal
+          minimum: 1
+          maximum: 100000
+
+    # ========================================================================
+    # WEEKLY LIMIT SCHEMAS
+    # ========================================================================
+    WeeklyLimitBalanceDto:
+      type: object
+      properties:
+        agentId:
+          type: integer
+          example: 5
+        weeklyLimit:
+          type: number
+          format: decimal
+          example: 10000.00
+        weeklyUsed:
+          type: number
+          format: decimal
+          example: 2500.00
+        weeklyAvailable:
+          type: number
+          format: decimal
+          example: 7500.00
+        weekStartDate:
+          type: string
+          format: date
+          example: "2025-01-13"
+        weekEndDate:
+          type: string
+          format: date
+          example: "2025-01-19"
+        nextResetAt:
+          type: string
+          format: date-time
+          example: "2025-01-20T00:00:00Z"
+
+    AllocateLimitDto:
+      type: object
+      required:
+        - downlineId
+        - amount
+      properties:
+        downlineId:
+          type: integer
+          description: Must be direct downline
+        amount:
+          type: number
+          format: decimal
+          minimum: 1
+
+    LimitResetLogDto:
+      type: object
+      properties:
+        id:
+          type: integer
+        agentId:
+          type: integer
+        weekStartDate:
+          type: string
+          format: date
+        previousUsed:
+          type: number
+          format: decimal
+        resetAt:
+          type: string
+          format: date-time
+
+    # ========================================================================
+    # DRAW RESULT SCHEMAS
+    # ========================================================================
+    DrawResultDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1001
+        providerId:
+          type: string
+          example: "clx1a2b3c4d5e6f7g8h9"
+        gameType:
+          type: string
+          enum: [3D, 4D, 5D, 6D]
+          example: "4D"
+        drawDate:
+          type: string
+          format: date
+          example: "2025-01-18"
+        drawTime:
+          type: string
+          format: time
+          example: "19:00:00"
+        winningNumbers:
+          type: object
+          description: Winning numbers by prize category
+          example:
+            first: "1234"
+            second: "5678"
+            third: "9012"
+            special: ["3456", "7890", "1122", "3344", "5566", "7788", "9900", "1230", "4560", "7891"]
+            consolation: ["2345", "6789", "0123", "4567", "8901", "2346", "6790", "0124", "4568", "8902"]
+        source:
+          type: string
+          enum: [API, MANUAL]
+          example: "API"
+        syncedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateDrawResultDto:
+      type: object
+      required:
+        - providerId
+        - gameType
+        - drawDate
+        - drawTime
+        - winningNumbers
+      properties:
+        providerId:
+          type: string
+        gameType:
+          type: string
+          enum: [3D, 4D, 5D, 6D]
+        drawDate:
+          type: string
+          format: date
+        drawTime:
+          type: string
+          format: time
+        winningNumbers:
+          type: object
+
+    # ========================================================================
+    # COMMISSION SCHEMAS
+    # ========================================================================
+    CommissionDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10001
+        betId:
+          type: integer
+          example: 50001
+        agentId:
+          type: integer
+          example: 5
+        level:
+          type: integer
+          example: 1
+          description: 1=direct upline, 2=upline's upline, etc.
+        commissionRate:
+          type: number
+          format: decimal
+          example: 30.00
+        commissionAmount:
+          type: number
+          format: decimal
+          example: 3.00
+        calculatedAt:
+          type: string
+          format: date-time
+
+    CommissionSummaryDto:
+      type: object
+      properties:
+        agentId:
+          type: integer
+        period:
+          type: object
+          properties:
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+        totalCommissionEarned:
+          type: number
+          format: decimal
+          description: Total commission received from downlines
+        totalCommissionDistributed:
+          type: number
+          format: decimal
+          description: Total commission paid to uplines
+        netCommission:
+          type: number
+          format: decimal
+          description: Earned - Distributed
+        commissionsByLevel:
+          type: array
+          items:
+            type: object
+            properties:
+              level:
+                type: integer
+              count:
+                type: integer
+              totalAmount:
+                type: number
+                format: decimal
+        totalBetsProcessed:
+          type: integer
+        totalBetAmount:
+          type: number
+          format: decimal
+
+    # ========================================================================
+    # REPORT SCHEMAS
+    # ========================================================================
+    ReportA1Dto:
+      type: object
+      properties:
+        reportName:
+          type: string
+          example: "Daily Betting Summary by Provider"
+        period:
+          type: object
+          properties:
+            startDate:
+              type: string
+              format: date
+            endDate:
+              type: string
+              format: date
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              providerId:
+                type: string
+              providerName:
+                type: string
+              totalBets:
+                type: integer
+              totalBetAmount:
+                type: number
+                format: decimal
+              totalPayout:
+                type: number
+                format: decimal
+
+    ReportA2Dto:
+      type: object
+      properties:
+        reportName:
+          type: string
+          example: "Winning Bets by Draw"
+        drawId:
+          type: integer
+        drawDate:
+          type: string
+          format: date
+        providerId:
+          type: string
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/BetDto'
+
+    ReportA3Dto:
+      type: object
+      properties:
+        reportName:
+          type: string
+          example: "Agent Performance by Period"
+        period:
+          type: object
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              agentId:
+                type: integer
+              agentUsername:
+                type: string
+              totalBets:
+                type: integer
+              totalBetAmount:
+                type: number
+                format: decimal
+              totalWinAmount:
+                type: number
+                format: decimal
+              winRate:
+                type: number
+                format: decimal
+                description: Percentage (0.00-100.00)
+              commissionEarned:
+                type: number
+                format: decimal
+
+    ReportB1Dto:
+      type: object
+      properties:
+        reportName:
+          type: string
+          example: "Weekly Limit Utilization by Agent"
+        weekStartDate:
+          type: string
+          format: date
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              agentId:
+                type: integer
+              agentUsername:
+                type: string
+              weeklyLimit:
+                type: number
+                format: decimal
+              weeklyUsed:
+                type: number
+                format: decimal
+              utilizationRate:
+                type: number
+                format: decimal
+                description: Percentage (0.00-100.00)
+
+    ReportB2Dto:
+      type: object
+      properties:
+        reportName:
+          type: string
+          example: "Commission Distribution Breakdown"
+        betId:
+          type: integer
+          nullable: true
+        period:
+          type: object
+          nullable: true
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              betId:
+                type: integer
+              agentId:
+                type: integer
+              agentUsername:
+                type: string
+              level:
+                type: integer
+              commissionRate:
+                type: number
+                format: decimal
+              commissionAmount:
+                type: number
+                format: decimal
+
+    ReportB3Dto:
+      type: object
+      properties:
+        reportName:
+          type: string
+          example: "Audit Log Export"
+        period:
+          type: object
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+              entityType:
+                type: string
+              entityId:
+                type: integer
+              action:
+                type: string
+              userId:
+                type: integer
+              changes:
+                type: object
+              timestamp:
+                type: string
+                format: date-time
+
+    # ========================================================================
+    # COMMON SCHEMAS
+    # ========================================================================
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+          example: 100
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 20
+        totalPages:
+          type: integer
+          example: 5
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "BAD_REQUEST"
+        message:
+          type: string
+          example: "Insufficient weekly limit"
+        statusCode:
+          type: integer
+          example: 400
+        details:
+          type: object
+          nullable: true
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed or token expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "UNAUTHORIZED"
+            message: "Invalid or expired token"
+            statusCode: 401
+
+    ForbiddenError:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "FORBIDDEN"
+            message: "Insufficient permissions to perform this action"
+            statusCode: 403
+
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "NOT_FOUND"
+            message: "Resource not found"
+            statusCode: 404
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: "VALIDATION_ERROR"
+            message: "Request validation failed"
+            statusCode: 422
+            details:
+              - field: "betAmount"
+                message: "betAmount must be a positive number"
