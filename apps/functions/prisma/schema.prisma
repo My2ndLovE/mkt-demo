@@ -1,0 +1,19 @@
+// This is a reference to the backend Prisma schema
+// Azure Functions will use the same database schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// Import the schema from backend
+// Note: In practice, we would either:
+// 1. Share the Prisma schema via a shared package
+// 2. Or duplicate the schema here
+//
+// For now, we'll use the backend's generated client by setting up the path correctly
