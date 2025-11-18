@@ -1,0 +1,286 @@
+// Prisma Schema for Multi-Level Agent Lottery Sandbox System
+// Database: Azure SQL Database (SQL Server)
+// ORM: Prisma v5
+// Date: 2025-11-18
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["fullTextSearch"]
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE ENTITIES
+// ============================================================================
+
+/// User entity representing Admin, Moderator, and Agent roles
+/// Supports unlimited hierarchy depth via self-referential upline/downlines
+model User {
+  id              Int       @id @default(autoincrement())
+  username        String    @unique @db.NVarChar(50)
+  passwordHash    String    @db.NVarChar(255)
+  role            String    @db.NVarChar(20) // ADMIN, MODERATOR, AGENT
+  fullName        String    @db.NVarChar(100)
+  phone           String?   @db.NVarChar(20)
+  email           String?   @db.NVarChar(100)
+
+  // Hierarchy (Self-referential for unlimited levels)
+  // SQL Server requires NoAction for self-referential relations
+  upline          User?     @relation("UserHierarchy", fields: [uplineId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  uplineId        Int?
+  downlines       User[]    @relation("UserHierarchy")
+
+  // Moderator Organization (for data isolation)
+  moderatorId     Int?      // References the moderator who manages this agent
+  moderator       User?     @relation("ModeratorAgents", fields: [moderatorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  managedAgents   User[]    @relation("ModeratorAgents")
+
+  // Weekly Limits (using MONEY type for currency precision)
+  weeklyLimit     Decimal   @default(0) @db.Money
+  weeklyUsed      Decimal   @default(0) @db.Money
+  commissionRate  Decimal   @default(0) @db.Decimal(5,2) // 0.00 to 100.00
+  canCreateSubs   Boolean   @default(true)
+
+  // Status & Metadata
+  active          Boolean   @default(true)
+  lastLoginAt     DateTime? @db.DateTime
+  createdAt       DateTime  @default(now()) @db.DateTime
+  updatedAt       DateTime  @updatedAt @db.DateTime
+
+  // Relations
+  bets            Bet[]
+  commissionsReceived Commission[] @relation("CommissionRecipient")
+  commissionsSourced  Commission[] @relation("CommissionSource")
+  auditLogs       AuditLog[]
+  refreshTokens   RefreshToken[]
+
+  @@index([uplineId], name: "idx_user_uplineId")
+  @@index([moderatorId], name: "idx_user_moderatorId")
+  @@index([username], name: "idx_user_username")
+  @@index([role], name: "idx_user_role")
+  @@index([active], name: "idx_user_active")
+  @@map("users")
+}
+
+/// Service Provider (Lottery operators: Magnum, Toto, Damacai, Singapore Pools)
+/// Admin-configurable for future expansion
+model ServiceProvider {
+  id              String    @id @default(cuid())
+  code            String    @unique @db.NVarChar(10) // M, P, T, S
+  name            String    @db.NVarChar(100) // Magnum, Sports Toto, etc.
+  country         String    @db.NVarChar(2) // MY, SG
+  active          Boolean   @default(true)
+
+  // JSON fields for flexible configuration
+  availableGames  String    @db.NVarChar(Max) // JSON: ["3D", "4D", "5D", "6D"]
+  betTypes        String    @db.NVarChar(Max) // JSON: ["BIG", "SMALL", "IBOX"]
+  drawSchedule    String    @db.NVarChar(Max) // JSON: {"days": [0,3,6], "time": "19:00"}
+
+  // API Configuration (for result synchronization)
+  apiEndpoint     String?   @db.NVarChar(500)
+  apiKey          String?   @db.NVarChar(500) // Encrypted
+
+  // Metadata
+  createdAt       DateTime  @default(now()) @db.DateTime
+  updatedAt       DateTime  @updatedAt @db.DateTime
+
+  // Relations
+  bets            Bet[]
+  results         DrawResult[]
+
+  @@index([code], name: "idx_provider_code")
+  @@index([active], name: "idx_provider_active")
+  @@map("service_providers")
+}
+
+/// Bet placed by agent (Multi-provider support via JSON array)
+model Bet {
+  id              Int       @id @default(autoincrement())
+
+  // Agent who placed the bet
+  agentId         Int
+  agent           User      @relation(fields: [agentId], references: [id])
+
+  // Multi-Provider Support (ARCHITECTURAL DECISION: OPTION A)
+  providerIds     String    @db.NVarChar(Max) // JSON: ["M", "P", "T"]
+  // For backwards compatibility, keep single providerId
+  providerId      String    // Primary provider ID for indexing
+  provider        ServiceProvider @relation(fields: [providerId], references: [id])
+
+  // Bet Details
+  gameType        String    @db.NVarChar(5) // 3D, 4D, 5D, 6D
+  betType         String    @db.NVarChar(10) // BIG, SMALL, IBOX
+  numbers         String    @db.NVarChar(20) // Bet numbers (e.g., "1234")
+  amountPerProvider Decimal @db.Money       // Amount per provider
+  totalAmount     Decimal   @db.Money       // Total amount (amountPerProvider × providers)
+
+  // Draw Information
+  drawDate        DateTime  @db.DateTime
+  status          String    @default("PENDING") @db.NVarChar(20) // PENDING, WON, LOST, CANCELLED
+
+  // Result Information (populated after draw)
+  resultId        Int?
+  result          DrawResult? @relation(fields: [resultId], references: [id])
+  winAmount       Decimal   @default(0) @db.Money
+
+  // Receipt & Metadata
+  receiptNumber   String    @unique @db.NVarChar(50)
+  createdAt       DateTime  @default(now()) @db.DateTime
+  updatedAt       DateTime  @updatedAt @db.DateTime
+
+  // Relations
+  commissions     Commission[]
+
+  @@index([agentId], name: "idx_bet_agentId")
+  @@index([providerId], name: "idx_bet_providerId")
+  @@index([status], name: "idx_bet_status")
+  @@index([drawDate], name: "idx_bet_drawDate")
+  @@index([receiptNumber], name: "idx_bet_receiptNumber")
+  @@index([createdAt], name: "idx_bet_createdAt")
+  @@index([agentId, status], name: "idx_bet_agentId_status")
+  @@map("bets")
+}
+
+/// Draw Results from lottery operators
+model DrawResult {
+  id              Int       @id @default(autoincrement())
+
+  // Provider Information
+  providerId      String
+  provider        ServiceProvider @relation(fields: [providerId], references: [id])
+
+  // Draw Details
+  gameType        String    @db.NVarChar(5) // 3D, 4D, 5D, 6D
+  drawDate        DateTime  @db.DateTime
+  drawNumber      String    @unique @db.NVarChar(50) // Unique identifier for this draw
+
+  // Winning Numbers
+  firstPrize      String    @db.NVarChar(10)
+  secondPrize     String    @db.NVarChar(10)
+  thirdPrize      String    @db.NVarChar(10)
+  starters        String    @db.NVarChar(Max) // JSON array: ["1111", "2222", ...]
+  consolations    String    @db.NVarChar(Max) // JSON array: ["3333", "4444", ...]
+
+  // Sync Metadata
+  syncMethod      String    @db.NVarChar(10) // AUTO (API), MANUAL (admin entry)
+  syncedBy        Int?      // User ID who entered (if manual)
+  syncedAt        DateTime  @default(now()) @db.DateTime
+  status          String    @default("FINAL") @db.NVarChar(20) // PENDING, VERIFIED, FINAL
+
+  // Relations
+  bets            Bet[]
+
+  @@index([providerId], name: "idx_result_providerId")
+  @@index([drawDate], name: "idx_result_drawDate")
+  @@index([drawNumber], name: "idx_result_drawNumber")
+  @@index([gameType], name: "idx_result_gameType")
+  @@index([providerId, drawDate, gameType], name: "idx_result_provider_date_game")
+  @@unique([providerId, gameType, drawDate], name: "uniq_result_provider_game_date")
+  @@map("draw_results")
+}
+
+/// Commission records for hierarchy
+model Commission {
+  id              Int       @id @default(autoincrement())
+
+  // Recipient of this commission
+  agentId         Int
+  agent           User      @relation("CommissionRecipient", fields: [agentId], references: [id])
+
+  // Bet that generated this commission
+  betId           Int
+  bet             Bet       @relation(fields: [betId], references: [id])
+
+  // Source agent who placed the bet
+  sourceAgentId   Int
+  sourceAgent     User      @relation("CommissionSource", fields: [sourceAgentId], references: [id])
+
+  // Commission Calculation
+  commissionRate  Decimal   @db.Decimal(5,2) // Rate at time of bet placement
+  betAmount       Decimal   @db.Money // Original bet amount
+  profitLoss      Decimal   @db.Money // + for win, - for loss
+  commissionAmt   Decimal   @db.Money // Commission earned (can be negative)
+  level           Int       // Hierarchy distance from source (1 = direct upline, 2 = upline's upline, etc.)
+
+  // Metadata
+  createdAt       DateTime  @default(now()) @db.DateTime
+
+  @@index([agentId], name: "idx_commission_agentId")
+  @@index([betId], name: "idx_commission_betId")
+  @@index([sourceAgentId], name: "idx_commission_sourceAgentId")
+  @@index([createdAt], name: "idx_commission_createdAt")
+  @@index([betId, level], name: "idx_commission_betId_level")
+  @@map("commissions")
+}
+
+// ============================================================================
+// AUTHENTICATION & SESSION
+// ============================================================================
+
+/// Refresh tokens for JWT authentication
+model RefreshToken {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token           String    @unique @db.NVarChar(500)
+  expiresAt       DateTime  @db.DateTime
+  createdAt       DateTime  @default(now()) @db.DateTime
+  revokedAt       DateTime? @db.DateTime
+  replacedBy      String?   @db.NVarChar(500) // Token that replaced this one (for rotation)
+
+  @@index([userId], name: "idx_refreshtoken_userId")
+  @@index([token], name: "idx_refreshtoken_token")
+  @@index([expiresAt], name: "idx_refreshtoken_expiresAt")
+  @@map("refresh_tokens")
+}
+
+// ============================================================================
+// AUDIT & LOGGING
+// ============================================================================
+
+/// Audit log for financial and administrative operations
+/// Immutable (append-only) for compliance
+model AuditLog {
+  id              Int       @id @default(autoincrement())
+
+  // User who performed the action (null for system actions)
+  userId          Int?
+  user            User?     @relation(fields: [userId], references: [id])
+
+  // Action Details
+  action          String    @db.NVarChar(100) // BET_PLACED, AGENT_CREATED, LIMIT_ADJUSTED, etc.
+  metadata        String    @db.NVarChar(Max) // JSON with action-specific details
+
+  // Request Context
+  ipAddress       String?   @db.NVarChar(50)
+  userAgent       String?   @db.NVarChar(500)
+
+  // Timestamp (immutable)
+  createdAt       DateTime  @default(now()) @db.DateTime
+
+  @@index([userId], name: "idx_auditlog_userId")
+  @@index([action], name: "idx_auditlog_action")
+  @@index([createdAt], name: "idx_auditlog_createdAt")
+  @@index([userId, createdAt], name: "idx_auditlog_userId_createdAt")
+  @@map("audit_logs")
+}
+
+/// Weekly limit reset log (for monitoring scheduled job)
+model LimitResetLog {
+  id              Int       @id @default(autoincrement())
+  resetDate       DateTime  @db.DateTime
+  affectedUsers   Int       // Count of users reset
+  totalLimit      Decimal   @db.Money // Sum of all limits reset
+  status          String    @db.NVarChar(20) // SUCCESS, FAILED, PARTIAL
+  errorMessage    String?   @db.NVarChar(Max)
+  createdAt       DateTime  @default(now()) @db.DateTime
+
+  @@index([resetDate], name: "idx_limitreset_resetDate")
+  @@index([status], name: "idx_limitreset_status")
+  @@map("limit_reset_logs")
+}

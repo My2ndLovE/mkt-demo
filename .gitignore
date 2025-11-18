@@ -1,33 +1,63 @@
 # Dependencies
 node_modules/
+.pnp
+.pnp.js
 package-lock.json
 
+# Testing
+coverage/
+.nyc_output/
+
 # Build outputs
+build/
 dist/
+.next/
+out/
 .astro/
 
 # Environment
 .env
 .env.local
+.env.development.local
+.env.test.local
+.env.production.local
 .env.production
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
-
-# OS
+*~
 .DS_Store
-Thumbs.db
 
 # Logs
+logs/
 *.log
 npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Prisma
+apps/backend/prisma/migrations/
+!apps/backend/prisma/migrations/.gitkeep
+
+# Azure Functions
+apps/backend/local.settings.json
+apps/backend/.azure/
 
 # Temporary files
 *.tmp
 .cache/
+.temp/
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Project specific
 answer.md
