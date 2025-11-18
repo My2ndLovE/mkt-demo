@@ -28,44 +28,10 @@ export class BetsService {
   async placeBet(userId: number, dto: CreateBetDto) {
     this.logger.log(`User ${userId} attempting to place bet`);
 
-    // Get user with current weekly usage
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        role: true,
-        weeklyLimit: true,
-        weeklyUsed: true,
-        moderatorId: true,
-        active: true,
-      },
-    });
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (!user.active) {
-      throw new ForbiddenException('Account is inactive');
-    }
-
     // Calculate total bet amount
     const totalAmount = new Decimal(dto.amountPerProvider).mul(dto.providerIds.length);
 
-    // Check weekly limit (only for AGENT and MODERATOR roles)
-    if (user.role === 'AGENT' || user.role === 'MODERATOR') {
-      const newWeeklyUsed = new Decimal(user.weeklyUsed).add(totalAmount);
-
-      if (newWeeklyUsed.greaterThan(user.weeklyLimit)) {
-        const remaining = new Decimal(user.weeklyLimit).sub(user.weeklyUsed);
-        throw new BadRequestException(
-          `Insufficient weekly limit. Remaining: RM ${remaining.toFixed(2)}, Required: RM ${totalAmount.toFixed(2)}`,
-        );
-      }
-    }
-
-    // Verify provider exists and is active
+    // Verify provider exists and is active (outside transaction for early validation)
     const provider = await this.prisma.serviceProvider.findUnique({
       where: { id: dto.providerId },
     });
@@ -79,7 +45,43 @@ export class BetsService {
     }
 
     // Create bet and update weekly usage in transaction
+    // CRITICAL: Weekly limit check is inside transaction to prevent race conditions
     const bet = await this.prisma.$transaction(async (tx) => {
+      // Get user with FOR UPDATE lock to prevent race conditions
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          username: true,
+          role: true,
+          weeklyLimit: true,
+          weeklyUsed: true,
+          moderatorId: true,
+          active: true,
+          fullName: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (!user.active) {
+        throw new ForbiddenException('Account is inactive');
+      }
+
+      // Check weekly limit (only for AGENT and MODERATOR roles)
+      if (user.role === 'AGENT' || user.role === 'MODERATOR') {
+        const newWeeklyUsed = new Decimal(user.weeklyUsed).add(totalAmount);
+
+        if (newWeeklyUsed.greaterThan(user.weeklyLimit)) {
+          const remaining = new Decimal(user.weeklyLimit).sub(user.weeklyUsed);
+          throw new BadRequestException(
+            `Insufficient weekly limit. Remaining: RM ${remaining.toFixed(2)}, Required: RM ${totalAmount.toFixed(2)}`,
+          );
+        }
+      }
+
       // Create bet
       const newBet = await tx.bet.create({
         data: {
@@ -124,27 +126,27 @@ export class BetsService {
         });
       }
 
-      return newBet;
+      return { bet: newBet, moderatorId: user.moderatorId };
     });
 
-    // Audit log
+    // Audit log (after transaction completes)
     await this.auditService.logBetPlaced(
       userId,
-      bet.id,
+      bet.bet.id,
       {
         betNumber: dto.betNumber,
         betType: dto.betType,
         providers: dto.providerIds,
         totalAmount: totalAmount.toNumber(),
       },
-      user.moderatorId,
+      bet.moderatorId,
     );
 
-    this.logger.log(`✅ Bet ${bet.id} placed successfully by user ${userId}`);
+    this.logger.log(`✅ Bet ${bet.bet.id} placed successfully by user ${userId}`);
 
     return {
-      ...bet,
-      providerIds: JSON.parse(bet.providerIds),
+      ...bet.bet,
+      providerIds: JSON.parse(bet.bet.providerIds),
     };
   }
 
@@ -211,13 +213,22 @@ export class BetsService {
       });
 
       // Refund weekly usage (only for AGENT and MODERATOR)
+      // CRITICAL: Prevent negative weeklyUsed values
       if (updated.user.role === 'AGENT' || updated.user.role === 'MODERATOR') {
+        const currentUser = await tx.user.findUnique({
+          where: { id: bet.userId },
+          select: { weeklyUsed: true },
+        });
+
+        const newWeeklyUsed = Math.max(
+          0,
+          new Decimal(currentUser.weeklyUsed).sub(bet.totalAmount).toNumber(),
+        );
+
         await tx.user.update({
           where: { id: bet.userId },
           data: {
-            weeklyUsed: {
-              decrement: bet.totalAmount,
-            },
+            weeklyUsed: newWeeklyUsed,
           },
         });
       }

@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsArray, IsString, IsNumber, Min, ArrayMinSize, IsInt } from 'class-validator';
+import { IsNotEmpty, IsArray, IsString, IsNumber, Min, ArrayMinSize, IsInt, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -21,6 +21,7 @@ export class CreateBetDto {
   @ApiProperty({ example: '1234', description: 'Bet number (4 digits)' })
   @IsString()
   @IsNotEmpty()
+  @Matches(/^\d{4}$/, { message: 'Bet number must be exactly 4 digits' })
   betNumber: string;
 
   @ApiProperty({ example: 'STRAIGHT', description: 'Bet type (STRAIGHT, BOX, etc.)' })

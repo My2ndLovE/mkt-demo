@@ -136,14 +136,22 @@ export class AuthService {
     };
   }
 
-  async logout(refreshToken: string): Promise<void> {
-    // Revoke refresh token
-    await this.prisma.refreshToken.updateMany({
-      where: { token: refreshToken },
+  async logout(userId: number, refreshToken: string): Promise<void> {
+    // Revoke refresh token (verify ownership to prevent unauthorized revocation)
+    const result = await this.prisma.refreshToken.updateMany({
+      where: {
+        token: refreshToken,
+        userId: userId, // CRITICAL: Verify the token belongs to the user
+      },
       data: { revokedAt: new Date() },
     });
 
-    this.logger.log('User logged out (refresh token revoked)');
+    if (result.count === 0) {
+      this.logger.warn(`Logout attempt failed: token not found or doesn't belong to user ${userId}`);
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    this.logger.log(`User ${userId} logged out (refresh token revoked)`);
   }
 
   private async generateRefreshToken(userId: number): Promise<string> {

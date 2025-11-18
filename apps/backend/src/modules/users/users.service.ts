@@ -291,21 +291,27 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Permission check
+    // Permission check - CRITICAL: Prevent unauthorized updates
     if (requesterRole === 'AGENT' && existing.uplineId !== requesterId) {
-      throw new ForbiddenException('You can only update your downline users');
+      throw new ForbiddenException('You can only update your direct downline users');
     }
 
-    if (requesterRole === 'MODERATOR' && existing.role === 'MODERATOR') {
-      throw new ForbiddenException('Moderators cannot update other moderators');
+    if (requesterRole === 'MODERATOR') {
+      // Moderators cannot update other moderators
+      if (existing.role === 'MODERATOR') {
+        throw new ForbiddenException('Moderators cannot update other moderators');
+      }
+      // CRITICAL: Verify user belongs to moderator's tree
+      if (existing.moderatorId !== requesterId) {
+        throw new ForbiddenException('You can only update users in your organization');
+      }
     }
 
-    // Update user
+    // Update user (role is excluded from UpdateUserDto to prevent privilege escalation)
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {
         ...(dto.fullName && { fullName: dto.fullName }),
-        ...(dto.role && { role: dto.role }),
         ...(dto.uplineId !== undefined && { uplineId: dto.uplineId }),
         ...(dto.weeklyLimit !== undefined && { weeklyLimit: dto.weeklyLimit }),
         ...(dto.commissionRate !== undefined && { commissionRate: dto.commissionRate }),

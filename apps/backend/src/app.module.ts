@@ -11,6 +11,7 @@ import { CommonModule } from './common/common.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/guards/roles.guard';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { ContextInterceptor } from './common/interceptors/context.interceptor';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
@@ -71,6 +72,11 @@ import { ReportsModule } from './modules/reports/reports.module';
       useClass: HttpExceptionFilter,
     },
     // Global interceptors
+    // ContextInterceptor MUST be first to establish AsyncLocalStorage context for RLS
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: ContextInterceptor,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: LoggingInterceptor,
