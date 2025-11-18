@@ -96,6 +96,7 @@ model ServiceProvider {
 }
 
 /// Bet placed by agent
+/// MULTI-PROVIDER SUPPORT (AD-001): Single bet can target multiple providers
 model Bet {
   id Int @id @default(autoincrement())
 
@@ -103,24 +104,23 @@ model Bet {
   agentId Int
   agent   User @relation(fields: [agentId], references: [id])
 
-  // Service provider (M, P, T, S)
-  providerId String
-  provider   ServiceProvider @relation(fields: [providerId], references: [id])
+  // Multi-Provider Support (AD-001: OPTION A)
+  // Store array of provider codes as JSON: ["M", "P", "T"]
+  providers String @db.NVarChar(500) // JSON array of provider codes
 
   // Bet Details
   gameType String  @db.NVarChar(5) // 3D, 4D, 5D, 6D
   betType  String  @db.NVarChar(10) // BIG, SMALL, IBOX
   numbers  String  @db.NVarChar(20) // Bet numbers (e.g., "1234")
-  amount   Decimal @db.Money
+  amount   Decimal @db.Money // Total amount across all providers
 
   // Draw Information
   drawDate DateTime @db.DateTime
-  status   String   @default("PENDING") @db.NVarChar(20) // PENDING, WON, LOST, CANCELLED
+  status   String   @default("PENDING") @db.NVarChar(20) // PENDING, WON, LOST, CANCELLED, PARTIAL
 
-  // Result Information (populated after draw)
-  resultId  Int?
-  result    DrawResult? @relation(fields: [resultId], references: [id])
-  winAmount Decimal     @default(0) @db.Money
+  // Multi-Provider Results (populated after draw)
+  // JSON: [{"provider": "M", "status": "WON", "winAmount": 2500, "prizeCategory": "1ST"}, ...]
+  results String? @db.NVarChar(Max)
 
   // Receipt & Metadata
   receiptNumber String   @unique @db.NVarChar(50)
@@ -131,7 +131,6 @@ model Bet {
   commissions Commission[]
 
   @@index([agentId, status], map: "idx_bet_agentId_status")
-  @@index([providerId], map: "idx_bet_providerId")
   @@index([status], map: "idx_bet_status")
   @@index([drawDate], map: "idx_bet_drawDate")
   @@index([receiptNumber], map: "idx_bet_receiptNumber")
